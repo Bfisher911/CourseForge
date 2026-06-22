@@ -5,6 +5,8 @@
 
 import { getSupabaseClient } from "./supabaseClient";
 import { generateCourseProject } from "./courseGenerator";
+import { withFallback, type AiResult } from "./aiAssist";
+import { reviseCourseObject, type ReviseCourseObjectInput } from "./objectRevision";
 import type { CourseBlueprint } from "../ai/blueprint";
 import type { CourseOutcome, CourseProject, CourseSettings } from "../types";
 
@@ -16,6 +18,35 @@ const accessToken = async (): Promise<string | null> => {
 };
 
 export const BLUEPRINT_ENDPOINT = "/.netlify/functions/generate-blueprint";
+export const REVISE_ENDPOINT = "/.netlify/functions/revise-object";
+
+/**
+ * Revise an object's Canvas HTML with real server-side AI, falling back to the deterministic
+ * reviser if the AI route is unreachable/denied (e.g. plain `vite`, no session, free plan). Always
+ * resolves with the revised HTML and which path produced it (for an honest UI hint).
+ */
+export const reviseHtmlWithAi = async (input: ReviseCourseObjectInput): Promise<AiResult<string>> =>
+  withFallback(
+    async () => {
+      const token = await accessToken();
+      if (!token) throw new Error("Sign in to use AI revise.");
+      const response = await fetch(REVISE_ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({
+          objectType: input.objectType,
+          title: input.title,
+          html: input.html,
+          mode: input.mode,
+          context: { outcomeCodes: input.context.outcomeCodes, moduleTitle: input.context.moduleTitle }
+        })
+      });
+      const data = (await response.json().catch(() => null)) as { html?: string; error?: string } | null;
+      if (!response.ok || !data?.html) throw new Error(data?.error ?? `AI revise failed (${response.status}).`);
+      return data.html;
+    },
+    () => reviseCourseObject(input).html
+  );
 
 /** Request an AI-generated blueprint. Throws with a friendly message on auth/entitlement/AI errors. */
 export const generateBlueprint = async (prompt: string, settings: CourseSettings): Promise<CourseBlueprint> => {

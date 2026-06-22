@@ -48,7 +48,7 @@ import { RubricsTab } from "./components/RubricsTab";
 import { SyllabusTab } from "./components/SyllabusTab";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
-import { buildCourseFromBlueprint, generateBlueprint } from "./services/aiGeneration";
+import { buildCourseFromBlueprint, generateBlueprint, reviseHtmlWithAi } from "./services/aiGeneration";
 import { defaultSettings } from "./data/defaultSettings";
 import type { Plan, PlanKey } from "./data/plans";
 import { plans } from "./data/plans";
@@ -384,50 +384,50 @@ function App() {
     updateCourse((current) => removeModule(current, moduleId, moveItemsToModuleId));
   };
 
-  const reviseActiveContent = (mode: RevisionMode): void => {
-    updateCourse((current) => {
-      if (mode === "rubric") {
-        const assignment = current.assignments[0];
-        if (!assignment) return current;
-        const result = reviseCourseObject({
-          courseTitle: current.title,
-          objectType: "assignment",
-          title: assignment.title,
-          html: assignment.descriptionHtml,
-          mode,
-          context: {
-            outcomeCodes: assignment.alignedOutcomeIds.map((outcomeId) => current.outcomes.find((outcome) => outcome.id === outcomeId)?.code ?? outcomeId),
-            moduleTitle: current.modules.find((module) => module.id === assignment.moduleId)?.title,
-            futureProvider: "server-side-ai"
-          }
-        });
-        return {
-          ...current,
-          assignments: current.assignments.map((item) =>
-            item.id === assignment.id ? { ...item, descriptionHtml: result.html, status: "edited", metadata: editMetadata() } : item
-          )
-        };
-      }
-
-      const targetPage = activeTab === "Syllabus" ? syllabus : homepage;
-      const result = reviseCourseObject({
-        courseTitle: current.title,
-        objectType: "page",
-        title: targetPage.title,
-        html: targetPage.bodyHtml,
+  // AI revise (real, server-side). Tries the secured revise function (auth + entitlement enforced
+  // there) and falls back to the deterministic reviser when the AI route is unreachable/denied.
+  const reviseActiveContent = async (mode: RevisionMode): Promise<void> => {
+    if (mode === "rubric") {
+      const assignment = course.assignments[0];
+      if (!assignment) return;
+      const result = await reviseHtmlWithAi({
+        courseTitle: course.title,
+        objectType: "assignment",
+        title: assignment.title,
+        html: assignment.descriptionHtml,
         mode,
         context: {
-          outcomeCodes: current.outcomes.slice(0, 3).map((outcome) => outcome.code),
-          moduleTitle: current.modules.find((module) => module.id === targetPage.moduleId)?.title,
+          outcomeCodes: assignment.alignedOutcomeIds.map((outcomeId) => course.outcomes.find((outcome) => outcome.id === outcomeId)?.code ?? outcomeId),
+          moduleTitle: course.modules.find((module) => module.id === assignment.moduleId)?.title,
           futureProvider: "server-side-ai"
         }
       });
-
-      return {
+      updateCourse((current) => ({
         ...current,
-        pages: current.pages.map((page) => (page.id === targetPage.id ? { ...page, bodyHtml: result.html, status: "edited", metadata: editMetadata() } : page))
-      };
+        assignments: current.assignments.map((item) =>
+          item.id === assignment.id ? { ...item, descriptionHtml: result.value, status: "edited", metadata: editMetadata() } : item
+        )
+      }));
+      return;
+    }
+
+    const targetPage = activeTab === "Syllabus" ? syllabus : homepage;
+    const result = await reviseHtmlWithAi({
+      courseTitle: course.title,
+      objectType: "page",
+      title: targetPage.title,
+      html: targetPage.bodyHtml,
+      mode,
+      context: {
+        outcomeCodes: course.outcomes.slice(0, 3).map((outcome) => outcome.code),
+        moduleTitle: course.modules.find((module) => module.id === targetPage.moduleId)?.title,
+        futureProvider: "server-side-ai"
+      }
     });
+    updateCourse((current) => ({
+      ...current,
+      pages: current.pages.map((page) => (page.id === targetPage.id ? { ...page, bodyHtml: result.value, status: "edited", metadata: editMetadata() } : page))
+    }));
   };
 
   // Build + validate the package locally without downloading. Separating validation from download
@@ -1374,18 +1374,29 @@ function Editor({
   lastDownloadName: string | null;
   onDuplicateModule: (moduleId: string) => void;
   onDeleteModule: (moduleId: string, moveItemsToModuleId?: string) => void;
-  onRevise: (mode: RevisionMode) => void;
+  onRevise: (mode: RevisionMode) => Promise<void>;
   exportMode: ExportMode;
   onExportModeChange: (mode: ExportMode) => void;
   importNotes: string[];
   saveState: "idle" | "saving" | "saved" | "error";
 }) {
   const tabsRef = useRef<HTMLDivElement>(null);
+  const [revising, setRevising] = useState<RevisionMode | null>(null);
 
   useEffect(() => {
     const active = tabsRef.current?.querySelector<HTMLButtonElement>("button.active");
     active?.scrollIntoView({ block: "nearest", inline: "center" });
   }, [activeTab]);
+
+  const runRevise = async (mode: RevisionMode): Promise<void> => {
+    if (revising) return;
+    setRevising(mode);
+    try {
+      await onRevise(mode);
+    } finally {
+      setRevising(null);
+    }
+  };
 
   return (
     <main className="editor-shell">
@@ -1426,18 +1437,16 @@ function Editor({
               to avoid duplication and keep the builder and its HTML in sync. */}
           {activeTab !== "Homepage" && activeTab !== "Syllabus" && (
             <div className="ai-toolbar" aria-label="AI revise actions">
-              <button onClick={() => onRevise("concise")}>
-                <PenLine size={15} /> Concise
-              </button>
-              <button onClick={() => onRevise("examples")}>
-                <Sparkles size={15} /> Add examples
-              </button>
-              <button onClick={() => onRevise("accessibility")}>
-                <CheckCircle2 size={15} /> Accessibility
-              </button>
-              <button onClick={() => onRevise("rubric")}>
-                <RotateCcw size={15} /> Rubric note
-              </button>
+              {([
+                ["concise", PenLine, "Concise"],
+                ["examples", Sparkles, "Add examples"],
+                ["accessibility", CheckCircle2, "Accessibility"],
+                ["rubric", RotateCcw, "Rubric note"]
+              ] as const).map(([mode, Icon, label]) => (
+                <button key={mode} onClick={() => void runRevise(mode)} disabled={revising !== null} aria-busy={revising === mode}>
+                  {revising === mode ? <Loader2 size={15} className="spin" /> : <Icon size={15} />} {label}
+                </button>
+              ))}
             </div>
           )}
         </div>
