@@ -69,3 +69,16 @@ export const bestTextOn = (background: string): "#ffffff" | "#0b1020" => {
 // AA for normal text is 4.5:1; AA for large/bold text (used by buttons and headings) is 3:1.
 export const meetsAaLarge = (foreground: string, background: string): boolean => contrastRatio(foreground, background) >= 3;
 export const meetsAaNormal = (foreground: string, background: string): boolean => contrastRatio(foreground, background) >= 4.5;
+
+// Mix a color toward black by `amount` (0–1). Used to derive a darker accent for custom themes so
+// the user only has to pick one primary color. Returns the input unchanged if it can't be parsed.
+export const darken = (value: string, amount: number): string => {
+  const rgb = parseHex(value);
+  if (!rgb) return value;
+  const factor = Math.max(0, Math.min(1, 1 - amount));
+  const channel = (n: number): string =>
+    Math.round(Math.max(0, Math.min(255, n * factor)))
+      .toString(16)
+      .padStart(2, "0");
+  return `#${channel(rgb.r)}${channel(rgb.g)}${channel(rgb.b)}`;
+};

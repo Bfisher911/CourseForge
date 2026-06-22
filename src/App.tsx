@@ -49,6 +49,7 @@ import { SyllabusTab } from "./components/SyllabusTab";
 import { useAuthSession, type AuthSessionState } from "./auth/useAuthSession";
 import type { CourseBlueprint } from "./ai/blueprint";
 import { buildCourseFromBlueprint, generateBlueprint, reviseHtmlWithAi } from "./services/aiGeneration";
+import { buildThemeFromCustom, customThemesEnabled, listCustomThemes, saveCustomTheme, type CustomThemeInput } from "./services/customThemes";
 import { defaultSettings } from "./data/defaultSettings";
 import type { Plan, PlanKey } from "./data/plans";
 import { plans } from "./data/plans";
@@ -193,6 +194,7 @@ function App() {
   const [blueprint, setBlueprint] = useState<CourseBlueprint | null>(null);
   const [aiBusy, setAiBusy] = useState(false);
   const [aiError, setAiError] = useState<string | null>(null);
+  const [customThemes, setCustomThemes] = useState<Theme[]>([]);
 
   const readiness = useMemo(() => buildReadinessReport(course), [course]);
   const quality = useMemo(() => buildCourseQualityReport(course), [course]);
@@ -245,6 +247,29 @@ function App() {
       active = false;
     };
   }, [auth.session]);
+
+  // Load the user's saved custom (school) themes so they appear in the theme library.
+  useEffect(() => {
+    if (!auth.session || !customThemesEnabled()) return;
+    let active = true;
+    void listCustomThemes().then((saved) => {
+      if (active) setCustomThemes(saved.map((entry) => entry.theme));
+    });
+    return () => {
+      active = false;
+    };
+  }, [auth.session]);
+
+  const handleSaveCustomTheme = async (
+    input: CustomThemeInput
+  ): Promise<{ ok: boolean; theme?: Theme; error?: string }> => {
+    const result = await saveCustomTheme(input);
+    if (result.ok && result.theme) {
+      const saved = result.theme;
+      setCustomThemes((current) => [saved, ...current.filter((theme) => theme.id !== saved.id)]);
+    }
+    return result;
+  };
 
   // Autosave the open course (debounced) for signed-in users who can create private projects.
   // The public sample course is never persisted to an account.
@@ -581,6 +606,9 @@ function App() {
           onExportModeChange={setExportMode}
           importNotes={importNotes}
           saveState={auth.session && course.id !== sampleProject.id ? saveState : "idle"}
+          customThemes={customThemes}
+          canCreateCustomTheme={auth.entitlement.canCreateCustomTheme}
+          onSaveCustomTheme={handleSaveCustomTheme}
         />
       )}
     </div>
@@ -1352,7 +1380,10 @@ function Editor({
   exportMode,
   onExportModeChange,
   importNotes,
-  saveState
+  saveState,
+  customThemes,
+  canCreateCustomTheme,
+  onSaveCustomTheme
 }: {
   course: CourseProject;
   activeTab: EditorTab;
@@ -1379,6 +1410,9 @@ function Editor({
   onExportModeChange: (mode: ExportMode) => void;
   importNotes: string[];
   saveState: "idle" | "saving" | "saved" | "error";
+  customThemes: Theme[];
+  canCreateCustomTheme: boolean;
+  onSaveCustomTheme: (input: CustomThemeInput) => Promise<{ ok: boolean; theme?: Theme; error?: string }>;
 }) {
   const tabsRef = useRef<HTMLDivElement>(null);
   const [revising, setRevising] = useState<RevisionMode | null>(null);
@@ -1482,7 +1516,15 @@ function Editor({
           {activeTab === "Rubrics" && <RubricsTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Gradebook Setup" && <GradebookTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Contact Hours" && <ContactHoursTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
-          {activeTab === "Theme" && <ThemeTab course={course} onUpdateCourse={onUpdateCourse} />}
+          {activeTab === "Theme" && (
+            <ThemeTab
+              course={course}
+              onUpdateCourse={onUpdateCourse}
+              customThemes={customThemes}
+              canCreateCustomTheme={canCreateCustomTheme}
+              onSaveCustomTheme={onSaveCustomTheme}
+            />
+          )}
           {activeTab === "Export" && (
             <ExportTab
               course={course}
@@ -2028,9 +2070,160 @@ function ThemeSwatch({ label, value }: { label: string; value: string }) {
   );
 }
 
-function ThemeTab({ course, onUpdateCourse }: { course: CourseProject; onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void }) {
+function CustomThemeBuilder({
+  canCreate,
+  currentThemeId,
+  onApply,
+  onSave
+}: {
+  canCreate: boolean;
+  currentThemeId: string;
+  onApply: (theme: Theme) => void;
+  onSave: (input: CustomThemeInput) => Promise<{ ok: boolean; theme?: Theme; error?: string }>;
+}) {
+  const [open, setOpen] = useState(false);
+  const [name, setName] = useState("My School Theme");
+  const [institution, setInstitution] = useState("");
+  const [primaryColor, setPrimaryColor] = useState("#1d4ed8");
+  const [backgroundColor, setBackgroundColor] = useState("#eef2ff");
+  const [textColor, setTextColor] = useState("#0f172a");
+  const [logoDataUrl, setLogoDataUrl] = useState<string | undefined>(undefined);
+  const [saving, setSaving] = useState(false);
+  const [notice, setNotice] = useState<string | null>(null);
+  const [error, setError] = useState<string | null>(null);
+
+  const input: CustomThemeInput = { name, institutionName: institution, primaryColor, backgroundColor, textColor, logoDataUrl };
+  const preview = useMemo(() => buildThemeFromCustom(input), [name, institution, primaryColor, backgroundColor, textColor, logoDataUrl]);
+  const check = useMemo(() => validateTheme(preview), [preview]);
+
+  const handleLogo = (file: File | null): void => {
+    setError(null);
+    if (!file) return;
+    if (!file.type.startsWith("image/")) {
+      setError("Logo must be an image.");
+      return;
+    }
+    if (file.size > 200 * 1024) {
+      setError("Logo must be under 200 KB (use a small PNG/SVG).");
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = () => setLogoDataUrl(typeof reader.result === "string" ? reader.result : undefined);
+    reader.readAsDataURL(file);
+  };
+
+  const applyOnly = (): void => {
+    setNotice(`Applied "${preview.name}" to this course.`);
+    onApply(preview);
+  };
+
+  const saveAndApply = async (): Promise<void> => {
+    setSaving(true);
+    setError(null);
+    setNotice(null);
+    try {
+      const result = await onSave(input);
+      if (!result.ok) {
+        setError(result.error ?? "Could not save theme.");
+        return;
+      }
+      onApply(result.theme ?? preview);
+      setNotice(`Saved "${preview.name}" to your account and applied it.`);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  return (
+    <section className="custom-theme-builder">
+      <header>
+        <div>
+          <h2>Create a custom school theme</h2>
+          <p>Match your institution's colors and logo. Apply it now, or save it to your account to reuse and export.</p>
+        </div>
+        <button className="secondary" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
+          <Palette size={16} /> {open ? "Hide builder" : "New custom theme"}
+        </button>
+      </header>
+
+      {open && (
+        <div className="custom-theme-grid">
+          <div className="custom-theme-fields">
+            <Input label="Theme name" value={name} onChange={setName} />
+            <Input label="Institution / program (optional)" value={institution} onChange={setInstitution} />
+            <div className="custom-color-row">
+              <label className="color-field">
+                <span>Primary</span>
+                <input type="color" value={primaryColor} onChange={(event) => setPrimaryColor(event.target.value)} aria-label="Primary color" />
+              </label>
+              <label className="color-field">
+                <span>Background</span>
+                <input type="color" value={backgroundColor} onChange={(event) => setBackgroundColor(event.target.value)} aria-label="Background color" />
+              </label>
+              <label className="color-field">
+                <span>Text</span>
+                <input type="color" value={textColor} onChange={(event) => setTextColor(event.target.value)} aria-label="Text color" />
+              </label>
+            </div>
+            <label className="logo-upload">
+              <Upload size={16} /> {logoDataUrl ? "Replace logo" : "Upload logo (small PNG/SVG, optional)"}
+              <input type="file" accept="image/png,image/svg+xml,image/jpeg" onChange={(event) => handleLogo(event.target.files?.[0] ?? null)} />
+            </label>
+            {error && <p className="auth-error">{error}</p>}
+            {notice && <p className="auth-info">{notice}</p>}
+            <div className="custom-theme-actions">
+              <button className="secondary" onClick={applyOnly}>
+                Apply to course
+              </button>
+              {canCreate ? (
+                <button className="primary" onClick={() => void saveAndApply()} disabled={saving}>
+                  {saving ? <Loader2 size={16} className="spin" /> : <CheckCircle2 size={16} />} Save &amp; apply
+                </button>
+              ) : (
+                <span className="custom-theme-lock">
+                  <Lock size={14} /> Saving custom themes needs a paid plan
+                </span>
+              )}
+            </div>
+          </div>
+
+          <div className="custom-theme-preview" style={{ background: preview.soft, color: preview.contrastText }}>
+            <div className="custom-preview-banner" style={{ background: preview.accent, color: "#fff" }}>
+              {logoDataUrl ? <img src={logoDataUrl} alt="Theme logo preview" /> : <Palette size={18} />}
+              <strong>{preview.bannerLabel}</strong>
+            </div>
+            <h3 style={{ color: preview.contrastText }}>{name || "Theme name"}</h3>
+            <p>Sample course content uses your soft background and text color.</p>
+            <span className="custom-preview-button" style={{ background: preview.accentDark, color: "#fff" }}>
+              Start Here
+            </span>
+            <em className={check.status === "pass" ? "ok" : "warn"}>
+              {check.status === "pass" ? "Contrast pass" : "Low contrast — adjust text/background"}
+            </em>
+            {currentThemeId === preview.id && <span className="custom-preview-active">Currently applied</span>}
+          </div>
+        </div>
+      )}
+    </section>
+  );
+}
+
+function ThemeTab({
+  course,
+  onUpdateCourse,
+  customThemes,
+  canCreateCustomTheme,
+  onSaveCustomTheme
+}: {
+  course: CourseProject;
+  onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void;
+  customThemes: Theme[];
+  canCreateCustomTheme: boolean;
+  onSaveCustomTheme: (input: CustomThemeInput) => Promise<{ ok: boolean; theme?: Theme; error?: string }>;
+}) {
   const [previewKind, setPreviewKind] = useState<ThemePreviewKind>("homepage");
   const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
+  const libraryThemes = useMemo(() => [...customThemes, ...themes], [customThemes]);
   const validation = useMemo(() => validateTheme(course.theme), [course.theme]);
   const styles = useMemo(() => getThemeStyles(course.theme), [course.theme]);
   const previewHtml = useMemo(() => buildThemePreviewHtml(course.theme, previewKind, course.title), [course.theme, previewKind, course.title]);
@@ -2096,8 +2289,9 @@ function ThemeTab({ course, onUpdateCourse }: { course: CourseProject; onUpdateC
             </div>
           </header>
           <div className="theme-grid">
-            {themes.map((theme) => {
+            {libraryThemes.map((theme) => {
               const themeCheck = validateTheme(theme);
+              const isCustom = theme.id.startsWith("custom_");
               return (
                 <button
                   key={theme.id}
@@ -2105,6 +2299,7 @@ function ThemeTab({ course, onUpdateCourse }: { course: CourseProject; onUpdateC
                   onClick={() => chooseTheme(theme)}
                   aria-pressed={course.theme.id === theme.id}
                 >
+                  {isCustom && <span className="theme-custom-tag">Custom</span>}
                   <span className="theme-choice-swatches" aria-hidden="true">
                     <i style={{ background: theme.accent }} />
                     <i style={{ background: theme.accentDark }} />
@@ -2117,6 +2312,12 @@ function ThemeTab({ course, onUpdateCourse }: { course: CourseProject; onUpdateC
               );
             })}
           </div>
+          <CustomThemeBuilder
+            canCreate={canCreateCustomTheme}
+            currentThemeId={course.theme.id}
+            onApply={(theme) => chooseTheme(theme)}
+            onSave={onSaveCustomTheme}
+          />
         </section>
 
         <section className="theme-preview-panel">
