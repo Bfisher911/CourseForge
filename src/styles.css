@@ -9384,3 +9384,75 @@ p {
   letter-spacing: 0.04em;
   opacity: 0.7;
 }
+
+/* ============================================================
+   Editor containment system (root layout fix)
+   Prevent any tab content from bleeding past the main column into the right
+   readiness rail. Flex/grid items must be allowed to shrink below their
+   content's intrinsic min-content size (min-width:0), otherwise one wide child
+   forces its whole container wider than the editor's main column and overlaps
+   the readiness panel. Wide content (tables, previews) scrolls inside its own
+   contained wrapper instead.
+   ============================================================ */
+.editor-main,
+.tab-body { min-width: 0; }
+
+/* Grid/flex children inside a tab must shrink to fit the column. */
+.tab-body .stack > *,
+.tab-body .split-editor,
+.tab-body .split-editor > *,
+.tab-body .module-planner-layout,
+.tab-body .module-planner-layout > *,
+.tab-body .module-board,
+.tab-body .module-board > *,
+.page-hero,
+.page-hero > *,
+.assignment-hero,
+.assignment-hero > *,
+.discussion-hero,
+.discussion-hero > *,
+.quiz-hero,
+.quiz-hero > *,
+.module-planner-hero,
+.module-planner-hero > * {
+  min-width: 0;
+}
+
+/* Long single-line text inside flexible headers must wrap or ellipsize, not push. */
+.page-hero h2,
+.assignment-hero h2,
+.discussion-hero h2,
+.quiz-hero h2,
+.module-planner-hero h2 {
+  overflow-wrap: anywhere;
+}
+
+/* Safety net: the tab body never lets a child spill horizontally under the rail.
+   overflow-x: clip keeps normal vertical flow (unlike hidden) and doesn't break
+   the inner scroll containers (canvas preview, rubric table) which scroll themselves. */
+.tab-body { overflow-x: clip; }
+
+/* Modules: let the left board shrink (was a hard 520px min that bled at laptop widths). */
+.module-planner-layout {
+  grid-template-columns: minmax(0, 1.32fr) minmax(0, 0.68fr);
+}
+
+/* Split editors (Pages/Assignments/Discussions/Quizzes) stack below ~1180px so the
+   editor and preview each get full width instead of overflowing. */
+@media (max-width: 1180px) {
+  .split-editor { grid-template-columns: 1fr; }
+  .module-planner-layout { grid-template-columns: 1fr; }
+}
+
+/* ── Topbar responsiveness: never let the header overflow the viewport. ── */
+.topnav,
+.topbar-account { min-width: 0; }
+.topbar-account { flex-shrink: 1; }
+@media (max-width: 1120px) {
+  .topbar { gap: 12px; padding: 0 16px; }
+  .topbar .plan-badge { display: none; } /* plan is shown prominently on the dashboard */
+  .account-email { max-width: 12ch; }
+}
+@media (max-width: 720px) {
+  .topbar .account-email { display: none; }
+}
