@@ -629,34 +629,6 @@ ${callout("Before You Submit", "<p>Review the rubric, confirm every section is c
     theme
   );
 
-const buildSyllabusHtml = (
-  title: string,
-  description: string,
-  outcomes: CourseOutcome[],
-  groups: AssignmentGroup[],
-  contactHours: ContactHourPlan,
-  scheduleRows: string[],
-  theme: Theme
-): string =>
-  canvasShell(
-    `${title} Syllabus`,
-    "Course expectations, grading structure, outcomes, support, and workload guidance.",
-    `${section("Printable Copy", `<p>${secondaryLink(fileRef("syllabus-printable.pdf"), "Download printable syllabus", theme)}</p><p>If the PDF preview is unavailable in Canvas, use the download link.</p>`, theme)}
-${section("Course Description", `<p>${description}</p>`, theme)}
-${section("Course Learning Outcomes", listHtml(outcomes.map((outcome) => `<strong>${outcome.code}:</strong> ${outcome.text} <em>(${outcome.bloomLevel})</em>`)), theme)}
-${section("Required and Optional Materials", checklistHtml(["Instructor will add required textbook chapters, OER sections, articles, videos, software, or open educational resources before publishing.", "Module resource pages identify where verified readings, media, or uploaded files should be added.", "Optional resources are marked clearly so students can prioritize required work."]), theme)}
-${section("Grading Breakdown", listHtml(groups.map((group) => `${group.name}: ${group.weight}%`)), theme)}
-${section("Weekly Schedule", `<p>Dates should be adjusted to match the official term calendar before publishing. Avoid holidays and blackout dates when setting due dates.</p><p>${secondaryLink(wikiPageRef(WELL_KNOWN_PAGE_IDS.calendar), "Open course calendar and workload plan", theme)}</p>${listHtml(scheduleRows)}`, theme)}
-${section("Participation and Communication", "<p>Students are expected to participate regularly, communicate respectfully, monitor announcements, and contact the instructor when barriers arise. Instructor should add response-time expectations, office hours, and preferred contact method.</p>", theme)}
-${section("Late Work Policy", "<p>Instructor should add institution-specific late work rules, grace periods, extension procedures, and any assignment types that cannot be submitted late.</p>", theme)}
-${section("Academic Integrity and AI Use", "<p>Institution academic integrity and acceptable AI-use policies should be inserted here before publication. If AI tools are permitted, students should disclose use, verify claims, and remain responsible for submitted work.</p>", theme)}
-${section("Accessibility and Student Support", "<p>Students who need accommodations should contact the appropriate campus office. Course pages use headings, descriptive links, readable formatting, alt-text prompts, and downloadable alternatives where practical.</p>", theme)}
-${section("Technology Requirements", "<p>Students need reliable Canvas access, the ability to open common document formats, and any instructor-specified software. Instructor should add browser, device, proctoring, or media requirements if applicable.</p>", theme)}
-${section("Help and Support", checklistHtml(["Ask content questions in the instructor-designated channel.", "Use Canvas help or campus support for technical access issues.", "Contact the instructor early if workload, access, or instructions become unclear."]), theme)}
-${section("Workload and Contact Hours", `<p>${contactHours.justification}</p>`, theme)}`,
-    theme
-  );
-
 const buildStudentGuideHtml = (courseTitle: string, theme: Theme): string =>
   canvasShell(
     "Course Success Guide",
