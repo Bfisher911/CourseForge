@@ -9,6 +9,9 @@
 // Minimal ambient declaration so editors/tsc are happy without pulling in @types/node.
 declare const process: { env: Record<string, string | undefined> };
 
+import { getAuthedUser } from "./_shared/http";
+import { checkUserEntitlement } from "./_shared/userEntitlement";
+
 const OPENAI_CHAT_URL = "https://api.openai.com/v1/chat/completions";
 const DEFAULT_MODEL = process.env.OPENAI_MODEL?.trim() || "gpt-4o-mini";
 const REQUEST_TIMEOUT_MS = 60_000;
@@ -59,6 +62,15 @@ export default async (request: Request): Promise<Response> => {
         "Server is not configured: OPENAI_API_KEY is missing. Set it in `.env` for local dev (via `netlify dev`) or in the Netlify dashboard for production."
     });
   }
+
+  // SECURITY: this generic AI proxy is NOT public. Require a valid Supabase session and an active
+  // AI-capable plan, so the static demo / free users can never spend OpenAI tokens here. Builder
+  // "Generate with AI" actions send the user's JWT; unauthenticated callers fall back to the
+  // deterministic generators client-side (withFallback).
+  const user = await getAuthedUser(request);
+  if (!user) return json(401, { error: "Sign in with an active plan to use AI." });
+  const { decision } = await checkUserEntitlement(user.token, "revise_ai");
+  if (!decision.allowed) return json(403, { error: decision.reason, code: decision.code });
 
   let body: ChatRequestBody;
   try {

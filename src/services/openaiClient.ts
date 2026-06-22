@@ -36,18 +36,31 @@ export interface ChatCompletionResult {
 
 export const OPENAI_PROXY_ENDPOINT = "/.netlify/functions/openai";
 
+// The proxy is auth-gated (it spends real tokens), so attach the user's Supabase access token.
+// Unauthenticated callers get a 401 and the caller's `withFallback` runs the deterministic path.
+const sessionToken = async (): Promise<string | null> => {
+  const { getSupabaseClient } = await import("./supabaseClient");
+  const client = await getSupabaseClient();
+  if (!client) return null;
+  const { data } = await client.auth.getSession();
+  return data.session?.access_token ?? null;
+};
+
 /**
  * Send chat messages to OpenAI via the server proxy.
  * Throws an Error (with the server's message) on any non-2xx response.
  */
 export const requestChatCompletion = async (request: ChatCompletionRequest): Promise<ChatCompletionResult> => {
   const { signal, ...payload } = request;
+  const token = await sessionToken();
+  const headers: Record<string, string> = { "Content-Type": "application/json" };
+  if (token) headers.Authorization = `Bearer ${token}`;
 
   let response: Response;
   try {
     response = await fetch(OPENAI_PROXY_ENDPOINT, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers,
       body: JSON.stringify(payload),
       signal
     });
