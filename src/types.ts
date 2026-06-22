@@ -4,6 +4,21 @@ export type ModuleItemType = "page" | "assignment" | "discussion" | "quiz" | "sy
 
 export type Screen = "landing" | "dashboard" | "intake" | "progress" | "editor";
 
+export type EditorTab =
+  | "Overview"
+  | "Homepage"
+  | "Syllabus"
+  | "Modules"
+  | "Pages"
+  | "Assignments"
+  | "Discussions"
+  | "Quizzes"
+  | "Rubrics"
+  | "Gradebook Setup"
+  | "Contact Hours"
+  | "Theme"
+  | "Export";
+
 export type BuildMode = "vibe" | "guided" | "hybrid";
 
 export type CourseLengthPreset = "4-weeks" | "6-weeks" | "8-weeks" | "12-weeks" | "15-weeks" | "16-weeks" | "maymester" | "custom";

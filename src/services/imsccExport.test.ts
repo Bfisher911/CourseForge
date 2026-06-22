@@ -482,4 +482,32 @@ describe("CourseForge export engine", () => {
     expect(result.course.modules.some((module) => module.title.includes("Week 1") && module.items.some((item) => item.title.includes("Overview")))).toBe(true);
     expect(result.course.pages.some((page) => page.slug === "syllabus")).toBe(true);
   });
+
+  it("fails validation when the manifest declares duplicate resource identifiers", async () => {
+    const course = structuredClone(sampleProject);
+    const duplicateId = course.pages[0].id;
+    course.pages = course.pages.map((page, index) => (index === 1 ? { ...page, id: duplicateId } : page));
+    const zip = await buildImsccZip(course);
+    const report = await validateImsccZip(course, zip);
+
+    expect(report.issues.some((issue) => issue.id === `duplicate-resource-${duplicateId}`)).toBe(true);
+    expect(report.valid).toBe(false);
+  });
+
+  it("fails validation when a required file is present but empty", async () => {
+    const zip = await buildImsccZip(sampleProject);
+    zip.file("course_settings/syllabus.html", "   ");
+    const report = await validateImsccZip(sampleProject, zip);
+
+    expect(report.issues.some((issue) => issue.id === "empty-required-course_settings/syllabus.html" && issue.severity === "error")).toBe(true);
+    expect(report.valid).toBe(false);
+  });
+
+  it("keeps the generated sample package free of duplicate-identifier and empty-file errors", async () => {
+    const zip = await buildImsccZip(sampleProject);
+    const report = await validateImsccZip(sampleProject, zip);
+
+    expect(report.issues.some((issue) => issue.id.startsWith("duplicate-resource-"))).toBe(false);
+    expect(report.issues.some((issue) => issue.id.startsWith("empty-required-"))).toBe(false);
+  });
 });

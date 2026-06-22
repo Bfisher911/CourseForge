@@ -1,5 +1,6 @@
 import type { CourseProject, ModuleItemType, ReadinessCheck, ReadinessReport } from "../types";
 import { slugify, stripHtml } from "../utils/text";
+import { hasUnsafeHtml } from "./htmlSafety";
 import { validateAssignmentPlan } from "./assignmentBuilder";
 import { validateDiscussionPlan } from "./discussionBuilder";
 import { validateModulePlan } from "./modulePlanner";
@@ -38,15 +39,6 @@ const visibleLength = (html: string): number => stripHtml(html).length;
 const hrefsFrom = (html: string): string[] => Array.from(html.matchAll(/href\s*=\s*["']([^"']*)["']/gi)).map((match) => match[1].trim());
 
 const isPlaceholderHref = (href: string): boolean => href === "" || href === "#" || /^javascript:/i.test(href) || href.includes("TODO_LINK");
-
-// Canvas's HTML sanitizer strips a known set of elements and dangerous URI schemes on import.
-// Content that relies on any of them renders differently (or not at all) once imported, so we
-// treat them as unsafe. Inline `style=` attributes are deliberately NOT flagged — Canvas keeps
-// them and the generated shell uses them throughout.
-const hasUnsafeHtml = (html: string): boolean =>
-  /<\s*(script|iframe|object|embed|form|style|link|meta|base|applet|frame|frameset)[\s>/]/i.test(html) ||
-  /\son[a-z]+\s*=/i.test(html) ||
-  /(?:href|src|action|formaction|xlink:href|background|poster)\s*=\s*["']?\s*(?:javascript:|vbscript:|data:text\/html)/i.test(html);
 
 const pageTargets = (course: CourseProject): Set<string> =>
   new Set(course.pages.flatMap((page) => [page.slug, `${slugify(page.slug || page.title)}.html`, `wiki_content/${slugify(page.slug || page.title)}.html`]));

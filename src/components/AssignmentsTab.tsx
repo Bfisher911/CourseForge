@@ -38,6 +38,9 @@ import {
   type AssignmentTemplateId
 } from "../services/assignmentBuilder";
 import { stripHtml } from "../utils/text";
+import { aiGenerateAssignmentDescription } from "../services/aiBuilders";
+import { useAiAction } from "../hooks/useAiAction";
+import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
 import type { Assignment, CourseProject, ObjectMetadata, PublishState } from "../types";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
@@ -212,6 +215,22 @@ export function AssignmentsTab({
         )
       };
     });
+  };
+
+  const ai = useAiAction();
+
+  const generateWithAi = (assignment: Assignment): void => {
+    pushSnapshot(assignment, "Generate with AI");
+    void ai.run(
+      () => aiGenerateAssignmentDescription(course, assignment),
+      (descriptionHtml) =>
+        updateAssignment(assignment.id, (item, timestamp) => ({
+          ...item,
+          descriptionHtml,
+          status: "edited",
+          metadata: touchMetadata(item.metadata, timestamp)
+        }))
+    );
   };
 
   const runReviseAction = (assignment: Assignment, action: AssignmentReviseAction): void => {
@@ -624,10 +643,12 @@ export function AssignmentsTab({
                 <button className="secondary" onClick={() => applyTemplate(selectedAssignment)}>
                   <Save size={14} /> Apply template
                 </button>
+                <AiGenerateButton running={ai.running} onClick={() => generateWithAi(selectedAssignment)} />
                 <button className="secondary" onClick={restoreLatest} disabled={!latestSnapshot}>
                   <Undo2 size={14} /> Restore previous
                 </button>
               </div>
+              <AiSourceNote running={ai.running} error={ai.error} status={ai.status} />
               {latestSnapshot && (
                 <p className="assignment-snapshot-note">
                   Latest snapshot: {latestSnapshot.reason}, {relativeTime(latestSnapshot.createdAt)}. Score then: {latestSnapshot.score}%.

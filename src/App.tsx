@@ -32,8 +32,12 @@ import {
 } from "lucide-react";
 import { type CSSProperties, useEffect, useMemo, useRef, useState } from "react";
 import { AssignmentsTab } from "./components/AssignmentsTab";
+import { ContactHoursTab } from "./components/ContactHoursTab";
 import { DiscussionsTab } from "./components/DiscussionsTab";
+import { ExportTab } from "./components/ExportTab";
+import { GradebookTab } from "./components/GradebookTab";
 import { HomepageTab } from "./components/HomepageTab";
+import { OverviewTab } from "./components/OverviewTab";
 import { PagesTab } from "./components/PagesTab";
 import { QuizzesTab } from "./components/QuizzesTab";
 import { RubricsTab } from "./components/RubricsTab";
@@ -166,6 +170,8 @@ function App() {
   const [subscriptionActive, setSubscriptionActive] = useState(true);
   const [validationReport, setValidationReport] = useState<ExportValidationReport | null>(null);
   const [isExporting, setIsExporting] = useState(false);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [lastDownloadName, setLastDownloadName] = useState<string | null>(null);
   const [draggedModuleId, setDraggedModuleId] = useState<string | null>(null);
   const [draggedItem, setDraggedItem] = useState<{ moduleId: string; itemId: string } | null>(null);
   const [importNotes, setImportNotes] = useState<string[]>([]);
@@ -313,29 +319,51 @@ function App() {
     });
   };
 
-  const exportCourse = async (): Promise<void> => {
+  // Build + validate the package locally without downloading. Separating validation from download
+  // keeps the workflow honest: the user can inspect the local report before committing to a file.
+  const runValidation = async (): Promise<void> => {
+    setIsExporting(true);
+    setExportError(null);
+    try {
+      const { report } = await generateImsccBlob({ ...course, exportMode }, exportMode);
+      setValidationReport(report);
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "Local validation failed unexpectedly.");
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
+  const downloadPackage = async (): Promise<void> => {
     if (!subscriptionActive) return;
     setIsExporting(true);
+    setExportError(null);
+    setLastDownloadName(null);
     try {
       const { blob, report, fileName } = await generateImsccBlob({ ...course, exportMode }, exportMode);
-      if (report.valid) {
-        downloadBlob(blob, fileName);
-        const exportedAt = new Date().toISOString();
-        updateCourse((current) => ({
-          ...current,
-          status: "exported",
-          exportMode,
-          exportHistory: [
-            { id: `export_${Date.now()}`, exportedAt, fileName, mode: exportMode, validationScore: report.score },
-            ...current.exportHistory
-          ],
-          pages: current.pages.map((page) => ({ ...page, metadata: { ...page.metadata, lastExportedAt: exportedAt, exportVersion: page.metadata.exportVersion + 1 } })),
-          assignments: current.assignments.map((assignment) => ({ ...assignment, metadata: { ...assignment.metadata, lastExportedAt: exportedAt, exportVersion: assignment.metadata.exportVersion + 1 } })),
-          discussions: current.discussions.map((discussion) => ({ ...discussion, metadata: { ...discussion.metadata, lastExportedAt: exportedAt, exportVersion: discussion.metadata.exportVersion + 1 } })),
-          quizzes: current.quizzes.map((quiz) => ({ ...quiz, metadata: { ...quiz.metadata, lastExportedAt: exportedAt, exportVersion: quiz.metadata.exportVersion + 1 } }))
-        }));
-      }
       setValidationReport(report);
+      if (!report.valid) {
+        setExportError("Local validation found blocking issues. Resolve them before downloading.");
+        return;
+      }
+      downloadBlob(blob, fileName);
+      setLastDownloadName(fileName);
+      const exportedAt = new Date().toISOString();
+      updateCourse((current) => ({
+        ...current,
+        status: "exported",
+        exportMode,
+        exportHistory: [
+          { id: `export_${Date.now()}`, exportedAt, fileName, mode: exportMode, validationScore: report.score },
+          ...current.exportHistory
+        ],
+        pages: current.pages.map((page) => ({ ...page, metadata: { ...page.metadata, lastExportedAt: exportedAt, exportVersion: page.metadata.exportVersion + 1 } })),
+        assignments: current.assignments.map((assignment) => ({ ...assignment, metadata: { ...assignment.metadata, lastExportedAt: exportedAt, exportVersion: assignment.metadata.exportVersion + 1 } })),
+        discussions: current.discussions.map((discussion) => ({ ...discussion, metadata: { ...discussion.metadata, lastExportedAt: exportedAt, exportVersion: discussion.metadata.exportVersion + 1 } })),
+        quizzes: current.quizzes.map((quiz) => ({ ...quiz, metadata: { ...quiz.metadata, lastExportedAt: exportedAt, exportVersion: quiz.metadata.exportVersion + 1 } }))
+      }));
+    } catch (error) {
+      setExportError(error instanceof Error ? error.message : "Export failed unexpectedly.");
     } finally {
       setIsExporting(false);
     }
@@ -392,7 +420,10 @@ function App() {
           onDragItem={setDraggedItem}
           onDropItem={reorderModuleItem}
           onUpdateCourse={updateCourse}
-          onExport={exportCourse}
+          onRunValidation={runValidation}
+          onDownload={downloadPackage}
+          exportError={exportError}
+          lastDownloadName={lastDownloadName}
           onDuplicateModule={duplicateModule}
           onDeleteModule={deleteModule}
           onRevise={reviseActiveContent}
@@ -458,7 +489,7 @@ const howItWorks = [
   {
     icon: FileArchive,
     title: "Validate & export",
-    body: "Check readiness and instructional quality, then download a validated .imscc package ready to import straight into Canvas."
+    body: "Check readiness and instructional quality, then download a locally validated, Canvas-oriented .imscc package to import and verify in a Canvas sandbox."
   }
 ] as const;
 
@@ -514,7 +545,7 @@ function Landing({ onStart, onDashboard }: { onStart: () => void; onDashboard: (
           </h1>
           <p>
             CourseForge turns a course prompt and a few guided settings into a structured, editable Canvas shell — then
-            validates and exports a Canvas-ready <strong>.imscc</strong> package. Built for instructors and instructional
+            locally validates and exports a Canvas-oriented <strong>.imscc</strong> package. Built for instructors and instructional
             designers.
           </p>
           <div className="hero-actions">
@@ -911,7 +942,10 @@ function Editor({
   onDragItem,
   onDropItem,
   onUpdateCourse,
-  onExport,
+  onRunValidation,
+  onDownload,
+  exportError,
+  lastDownloadName,
   onDuplicateModule,
   onDeleteModule,
   onRevise,
@@ -933,7 +967,10 @@ function Editor({
   onDragItem: (item: { moduleId: string; itemId: string } | null) => void;
   onDropItem: (moduleId: string, itemId?: string) => void;
   onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void;
-  onExport: () => void;
+  onRunValidation: () => void;
+  onDownload: () => void;
+  exportError: string | null;
+  lastDownloadName: string | null;
   onDuplicateModule: (moduleId: string) => void;
   onDeleteModule: (moduleId: string, moveItemsToModuleId?: string) => void;
   onRevise: (mode: RevisionMode) => void;
@@ -1005,7 +1042,7 @@ function Editor({
           ))}
         </div>
         <div className="tab-body">
-          {activeTab === "Overview" && <OverviewTab course={course} onUpdateCourse={onUpdateCourse} />}
+          {activeTab === "Overview" && <OverviewTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Homepage" && <HomepageTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Syllabus" && <SyllabusTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Modules" && (
@@ -1027,21 +1064,24 @@ function Editor({
           {activeTab === "Discussions" && <DiscussionsTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Quizzes" && <QuizzesTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Rubrics" && <RubricsTab course={course} onUpdateCourse={onUpdateCourse} />}
-          {activeTab === "Gradebook Setup" && <GradebookTab course={course} onUpdateCourse={onUpdateCourse} />}
-          {activeTab === "Contact Hours" && <ContactHoursTab course={course} onUpdateCourse={onUpdateCourse} />}
+          {activeTab === "Gradebook Setup" && <GradebookTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
+          {activeTab === "Contact Hours" && <ContactHoursTab course={course} onUpdateCourse={onUpdateCourse} onJumpToTab={setActiveTab} />}
           {activeTab === "Theme" && <ThemeTab course={course} onUpdateCourse={onUpdateCourse} />}
           {activeTab === "Export" && (
             <ExportTab
               course={course}
               readiness={readiness}
-              quality={quality}
-              subscriptionActive={subscriptionActive}
               validationReport={validationReport}
               isExporting={isExporting}
               exportMode={exportMode}
               onExportModeChange={onExportModeChange}
               importNotes={importNotes}
-              onExport={onExport}
+              subscriptionActive={subscriptionActive}
+              exportError={exportError}
+              lastDownloadName={lastDownloadName}
+              onRunValidation={onRunValidation}
+              onDownload={onDownload}
+              onJumpToTab={setActiveTab}
             />
           )}
         </div>
@@ -1051,32 +1091,6 @@ function Editor({
         <ReadinessPanel readiness={readiness} quality={quality} validationReport={validationReport} subscriptionActive={subscriptionActive} />
       </aside>
     </main>
-  );
-}
-
-function OverviewTab({ course, onUpdateCourse }: { course: CourseProject; onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void }) {
-  return (
-    <div className="stack">
-      <Input label="Course title" value={course.title} onChange={(value) => onUpdateCourse((current) => ({ ...current, title: value, settings: { ...current.settings, title: value } }))} />
-      <TextArea label="Description" value={course.description} onChange={(value) => onUpdateCourse((current) => ({ ...current, description: value }))} />
-      <div className="object-grid">
-        {course.outcomes.map((outcome, index) => (
-          <div className="object-card" key={outcome.id}>
-            <label>{outcome.code}</label>
-            <textarea
-              value={outcome.text}
-              onChange={(event) =>
-                onUpdateCourse((current) => ({
-                  ...current,
-                  outcomes: current.outcomes.map((item) => (item.id === outcome.id ? { ...item, text: event.target.value } : item))
-                }))
-              }
-            />
-            <small>{outcome.bloomLevel} • aligned to {course.outcomes[index].alignedModuleIds.length} modules</small>
-          </div>
-        ))}
-      </div>
-    </div>
   );
 }
 
@@ -1578,86 +1592,6 @@ function CollectionTab<T extends { id: string; title: string; status: CourseProj
   );
 }
 
-function GradebookTab({ course, onUpdateCourse }: { course: CourseProject; onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void }) {
-  const total = course.assignmentGroups.reduce((sum, group) => sum + group.weight, 0);
-  return (
-    <div className="stack">
-      <h2>Gradebook Setup</h2>
-      <p className={Math.round(total) === 100 ? "good-note" : "warn-note"}>Weights total {total}%.</p>
-      {course.assignmentGroups.map((group) => (
-        <div className="grade-row" key={group.id}>
-          <Input
-            label="Group"
-            value={group.name}
-            onChange={(value) =>
-              onUpdateCourse((current) => ({ ...current, assignmentGroups: current.assignmentGroups.map((item) => (item.id === group.id ? { ...item, name: value } : item)) }))
-            }
-          />
-          <NumberInput
-            label="Weight"
-            value={group.weight}
-            min={0}
-            max={100}
-            suffix="%"
-            onChange={(value) =>
-              onUpdateCourse((current) => ({ ...current, assignmentGroups: current.assignmentGroups.map((item) => (item.id === group.id ? { ...item, weight: value } : item)) }))
-            }
-          />
-        </div>
-      ))}
-    </div>
-  );
-}
-
-function ContactHoursTab({ course, onUpdateCourse }: { course: CourseProject; onUpdateCourse: (updater: (current: CourseProject) => CourseProject) => void }) {
-  const fields: Array<[keyof typeof course.contactHours, string]> = [
-    ["instructionalTime", "Instructional time"],
-    ["readingMediaTime", "Reading/media"],
-    ["assignmentTime", "Assignments"],
-    ["discussionTime", "Discussions"],
-    ["quizStudyTime", "Quiz/study"],
-    ["finalProjectTime", "Final project"]
-  ];
-  return (
-    <div className="stack">
-      <h2>Contact Hours</h2>
-      <div className="field-grid">
-        {fields.map(([key, label]) => (
-          <NumberInput
-            key={key}
-            label={label}
-            value={Number(course.contactHours[key])}
-            min={0}
-            max={300}
-            suffix="hours"
-            onChange={(value) =>
-              onUpdateCourse((current) => ({
-                ...current,
-                contactHours: {
-                  ...current.contactHours,
-                  [key]: value,
-                  totalHours:
-                    key === "totalHours"
-                      ? value
-                      : ["instructionalTime", "readingMediaTime", "assignmentTime", "discussionTime", "quizStudyTime", "finalProjectTime"].reduce(
-                          (sum, itemKey) => sum + Number(itemKey === key ? value : current.contactHours[itemKey as keyof typeof current.contactHours]),
-                          0
-                        )
-                }
-              }))
-            }
-          />
-        ))}
-      </div>
-      <TextArea
-        label="Justification"
-        value={course.contactHours.justification}
-        onChange={(value) => onUpdateCourse((current) => ({ ...current, contactHours: { ...current.contactHours, justification: value } }))}
-      />
-    </div>
-  );
-}
-
 const themePreviewModes: Array<{ id: ThemePreviewKind; label: string }> = [
   { id: "homepage", label: "Homepage" },
   { id: "syllabus", label: "Syllabus" },
@@ -1836,133 +1770,6 @@ function ThemeTab({ course, onUpdateCourse }: { course: CourseProject; onUpdateC
   );
 }
 
-function ExportTab({
-  course,
-  readiness,
-  quality,
-  subscriptionActive,
-  validationReport,
-  isExporting,
-  exportMode,
-  onExportModeChange,
-  importNotes,
-  onExport
-}: {
-  course: CourseProject;
-  readiness: ReturnType<typeof buildReadinessReport>;
-  quality: ReturnType<typeof buildCourseQualityReport>;
-  subscriptionActive: boolean;
-  validationReport: ExportValidationReport | null;
-  isExporting: boolean;
-  exportMode: ExportMode;
-  onExportModeChange: (mode: ExportMode) => void;
-  importNotes: string[];
-  onExport: () => void;
-}) {
-  return (
-    <div className="export-layout">
-      <section className="export-card">
-        <FileArchive size={28} />
-        <h2>Canvas IMSCC Export</h2>
-        <p>
-          Package includes manifest, module metadata, Canvas navigation defaults, pages, assignments, discussions, quizzes, rubrics, outcomes, assignment groups, guide PDFs, and generated image assets.
-        </p>
-        <div className="mode-grid" role="radiogroup" aria-label="Export mode">
-          {(["full", "selected", "new", "changed"] as ExportMode[]).map((mode) => (
-            <label key={mode} className={exportMode === mode ? "mode-choice active" : "mode-choice"}>
-              <input type="radio" name="export-mode" value={mode} checked={exportMode === mode} onChange={() => onExportModeChange(mode)} />
-              <span>{mode === "full" ? "Full course" : mode === "selected" ? "Selected content" : mode === "new" ? "New since export" : "Changed since export"}</span>
-            </label>
-          ))}
-        </div>
-        {exportMode !== "full" && (
-          <p className="warn-note">
-            MVP note: dependency validation runs for this mode, but the browser-only package still includes supporting course metadata, outcomes, rubrics, files, assignment groups, and module references so Canvas has context.
-          </p>
-        )}
-        <button className="primary" disabled={!subscriptionActive || isExporting} onClick={onExport}>
-          {subscriptionActive ? <ArrowDownToLine size={18} /> : <Lock size={18} />}
-          {isExporting ? "Preparing package" : subscriptionActive ? "Validate and Download .imscc" : "Subscription required"}
-        </button>
-        <small className="block-note">
-          Canvas sandbox import status: <strong>{validationReport?.sandboxImportStatus ?? "not_tested"}</strong>
-        </small>
-      </section>
-      <section className="export-card">
-        <h2>Current package contents</h2>
-        <ul className="compact-list">
-          <li>{course.pages.length} pages</li>
-          <li>{course.modules.length} modules</li>
-          <li>{course.assignments.length} assignments</li>
-          <li>{course.discussions.length} discussions</li>
-          <li>{course.quizzes.length} quizzes</li>
-          <li>{course.rubrics.length} rubrics</li>
-        </ul>
-        <h3>Validation</h3>
-        {validationReport ? (
-          <>
-            <p className={validationReport.valid ? "good-note" : "warn-note"}>{validationReport.valid ? "Local package validation passed." : "Local validation found blockers."}</p>
-            <small>
-              {validationReport.files.length} package files • score {validationReport.score}
-            </small>
-            {validationReport.issues.length > 0 && (
-              <ul className="issue-list">
-                {validationReport.issues.map((issue) => (
-                  <li key={issue.id} className={issue.severity}>
-                    {issue.message}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </>
-        ) : (
-          <p>Run export to generate the validation report.</p>
-        )}
-        <h3>Readiness score</h3>
-        <p>{readiness.score}% before export validation.</p>
-        <h3>Course quality</h3>
-        <p>{quality.score}% instructional quality score.</p>
-        <ul className="compact-list">
-          {quality.categories.map((category) => (
-            <li key={category.category}>
-              {category.label}: {category.score}%{category.issues.length ? ` - ${category.issues[0]}` : ""}
-            </li>
-          ))}
-        </ul>
-      </section>
-      <section className="export-card">
-        <h2>Canvas Import Starter Guide</h2>
-        <ol className="compact-list">
-          <li>Open the target Canvas course.</li>
-          <li>Go to Settings.</li>
-          <li>Click Import Course Content.</li>
-          <li>Choose Canvas Course Export Package or the IMSCC/Common Cartridge option your Canvas instance provides.</li>
-          <li>Choose the CourseForge .imscc file.</li>
-          <li>Select all content or selected content.</li>
-          <li>Adjust due dates if needed.</li>
-          <li>Start the import.</li>
-          <li>Review modules, navigation, gradebook groups, rubrics, syllabus, publish states, and guide files.</li>
-        </ol>
-        <p className="warn-note">Reimporting edited objects into an existing Canvas course can create duplicates instead of replacing earlier content.</p>
-      </section>
-      <section className="export-card">
-        <h2>Existing Canvas Course Import</h2>
-        <p>
-          To iterate from a current Canvas course, export it from Canvas Settings, choose course export, download the .imscc, then upload it in CourseForge's Create screen. The current parser recovers pages and partial shells for assignments, discussions, and quizzes.
-        </p>
-        {importNotes.length > 0 && (
-          <ul className="issue-list">
-            {importNotes.map((note) => (
-              <li key={note} className="warning">
-                {note}
-              </li>
-            ))}
-          </ul>
-        )}
-      </section>
-    </div>
-  );
-}
 
 function ReadinessPanel({
   readiness,

@@ -12,6 +12,9 @@ import {
   validateRubricPlan,
   type RubricTemplateId
 } from "../services/rubricBuilder";
+import { aiGenerateRubricCriteria } from "../services/aiBuilders";
+import { useAiAction } from "../hooks/useAiAction";
+import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
 
 interface RubricsTabProps {
   course: CourseProject;
@@ -64,6 +67,22 @@ export function RubricsTab({ course, onUpdateCourse }: RubricsTabProps) {
   const mutateSelected = (updater: (rubric: Rubric) => Rubric) => {
     if (!selectedRubric) return;
     onUpdateCourse((current) => updateRubric(current, selectedRubric.id, updater));
+  };
+
+  const ai = useAiAction();
+
+  const generateCriteria = () => {
+    if (!selectedRubric) return;
+    pushSnapshot(selectedRubric, "Generate criteria with AI");
+    void ai.run(
+      () => aiGenerateRubricCriteria(course, selectedRubric),
+      (criteria) =>
+        mutateSelected((rubric) => ({
+          ...rubric,
+          criteria,
+          points: criteria.reduce((sum, criterion) => sum + (criterion.levels.length ? Math.max(...criterion.levels.map((level) => level.points)) : 0), 0)
+        }))
+    );
   };
 
   const addRubric = () => {
@@ -167,10 +186,12 @@ export function RubricsTab({ course, onUpdateCourse }: RubricsTabProps) {
             <div><span className={`rubric-status ${selectedIssues.length ? "review" : "ready"}`}>{selectedIssues.length ? `${selectedIssues.length} to review` : "Ready"}</span><h3>{selectedRubric.title}</h3><p>{selectedRubric.points} points • used by {label(selectedUsage.assignments.length, "assignment")} and {label(selectedUsage.discussions.length, "discussion")}.</p></div>
             <div className="rubric-editor-actions">
               <button onClick={() => { pushSnapshot(selectedRubric, "Applied template"); onUpdateCourse((current) => applyRubricTemplate(current, selectedRubric.id, templateId)); }}><Wand2 size={15} /> Apply template</button>
+              <AiGenerateButton running={ai.running} onClick={generateCriteria} label="Generate criteria with AI" />
               <button disabled={!latestSnapshot} onClick={() => { if (!latestSnapshot) return; onUpdateCourse((current) => updateRubric(current, selectedRubric.id, () => latestSnapshot.rubric)); setSnapshots((current) => current.filter((snapshot) => snapshot.id !== latestSnapshot.id)); }}><RotateCcw size={15} /> Restore previous</button>
             </div>
           </header>
 
+          <AiSourceNote running={ai.running} error={ai.error} status={ai.status} />
           {latestSnapshot && <p className="rubric-snapshot-note">Latest snapshot: {latestSnapshot.reason}, {latestSnapshot.createdAt}.</p>}
           <label className="rubric-title-field">Rubric title<input value={selectedRubric.title} onChange={(event) => mutateSelected((rubric) => ({ ...rubric, title: event.target.value }))} /></label>
 

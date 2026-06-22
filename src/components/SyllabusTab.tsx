@@ -37,6 +37,9 @@ import {
 } from "../services/syllabusTemplates";
 import { validateSyllabus, type SyllabusValidationResult } from "../services/syllabusValidation";
 import { slugify, stripHtml } from "../utils/text";
+import { aiGenerateSyllabusContent } from "../services/aiBuilders";
+import { useAiAction } from "../hooks/useAiAction";
+import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
 import type { CourseProject, SyllabusContent, SyllabusSnapshot, SyllabusState } from "../types";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
@@ -135,6 +138,7 @@ export function SyllabusTab({ course, onUpdateCourse }: { course: CourseProject;
     assignmentOverview: true
   });
   const [compareId, setCompareId] = useState<string | null>(null);
+  const ai = useAiAction();
 
   useEffect(() => {
     if (page && !course.syllabus) {
@@ -226,6 +230,21 @@ export function SyllabusTab({ course, onUpdateCourse }: { course: CourseProject;
     writeSyllabus(
       { ...state, content: nextContent, mode: "builder", themeId: course.theme.id, snapshots: withSnapshot(`Before "${meta?.label ?? action}"`, state.snapshots) },
       html
+    );
+  };
+
+  const generateWithAi = (): void => {
+    if (!state) return;
+    const baseState = state;
+    void ai.run(
+      () => aiGenerateSyllabusContent(course, baseState.content),
+      (next) => {
+        const html = renderSyllabus(baseState.templateId, next, course.theme);
+        writeSyllabus(
+          { ...baseState, content: next, mode: "builder", themeId: course.theme.id, snapshots: withSnapshot("Before Generate with AI", baseState.snapshots) },
+          html
+        );
+      }
     );
   };
 
@@ -351,6 +370,8 @@ export function SyllabusTab({ course, onUpdateCourse }: { course: CourseProject;
                     </button>
                   ))}
                 </div>
+                <AiGenerateButton running={ai.running} onClick={generateWithAi} label="Generate syllabus with AI" />
+                <AiSourceNote running={ai.running} error={ai.error} status={ai.status} />
               </div>
 
               {content && sectionConfigs.map((section) => {

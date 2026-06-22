@@ -15,6 +15,7 @@ import type {
   Rubric
 } from "../types";
 import { escapeXml, slugify, stripHtml } from "../utils/text";
+import { unsafeHtmlReasons } from "./htmlSafety";
 import { validateAssignmentPlan } from "./assignmentBuilder";
 import { validateDiscussionPlan } from "./discussionBuilder";
 import { validateModulePlan } from "./modulePlanner";
@@ -736,7 +737,6 @@ const htmlBlocks = (course: CourseProject): Array<{ id: string; title: string; h
 ];
 
 const hrefsFrom = (html: string): string[] => Array.from(html.matchAll(/href\s*=\s*["']([^"']*)["']/gi)).map((match) => match[1].trim());
-const unsafeHtml = (html: string): boolean => /<script[\s>]/i.test(html) || /\son[a-z]+\s*=/i.test(html) || /<iframe[\s>]/i.test(html) || /<object[\s>]/i.test(html);
 const placeholderHref = (href: string): boolean => href === "" || href === "#" || /^javascript:/i.test(href) || href.includes("TODO_LINK");
 const externalHref = (href: string): boolean => /^(https?:|mailto:|tel:)/i.test(href);
 const normalizeHref = (href: string): string => href.split("#")[0].split("?")[0].replace(/^\.\//, "");
@@ -863,7 +863,8 @@ export const validateImsccZip = async (course: CourseProject, zip: JSZip): Promi
   });
 
   htmlBlocks(course).forEach((block) => {
-    if (unsafeHtml(block.html)) fail(`unsafe-html-${block.id}`, `${block.title} includes Canvas-hostile HTML.`);
+    const blockUnsafeReasons = unsafeHtmlReasons(block.html);
+    if (blockUnsafeReasons.length > 0) fail(`unsafe-html-${block.id}`, `${block.title} includes Canvas-hostile HTML: ${blockUnsafeReasons.join(", ")}.`);
     hrefsFrom(block.html).forEach((href) => {
       if (placeholderHref(href)) fail(`placeholder-link-${block.id}`, `${block.title} includes a placeholder or unsafe link: ${href || "(empty)"}.`);
     });
@@ -921,16 +922,44 @@ export const validateImsccZip = async (course: CourseProject, zip: JSZip): Promi
   }
 
   const manifestText = await zip.file("imsmanifest.xml")?.async("text");
-  const resourceIds = new Set(Array.from(manifestText?.matchAll(/<resource\s+identifier="([^"]+)"/g) ?? []).map((match) => match[1]));
+  const resourceIdList = Array.from(manifestText?.matchAll(/<resource\s+identifier="([^"]+)"/g) ?? []).map((match) => match[1]);
+  const resourceIds = new Set(resourceIdList);
   const identifierRefs = Array.from(manifestText?.matchAll(/identifierref="([^"]+)"/g) ?? []).map((match) => match[1]);
   identifierRefs.forEach((ref) => {
     if (!resourceIds.has(ref)) fail(`missing-resource-${ref}`, `Manifest identifierref ${ref} does not point to a resource.`);
+  });
+
+  // Duplicate resource identifiers make the manifest ambiguous; Canvas can drop or mis-link the
+  // second resource on import, so they are a hard error.
+  const seenResourceIds = new Set<string>();
+  resourceIdList.forEach((id) => {
+    if (seenResourceIds.has(id)) fail(`duplicate-resource-${id}`, `Manifest declares more than one resource with identifier "${id}".`);
+    seenResourceIds.add(id);
   });
 
   const fileRefs = Array.from(manifestText?.matchAll(/<file\s+href="([^"]+)"/g) ?? []).map((match) => match[1]);
   fileRefs.forEach((ref) => {
     if (!zip.file(ref)) fail(`missing-file-${ref}`, `Manifest file reference ${ref} is missing from the package.`);
   });
+
+  // A required descriptor or the syllabus can exist yet be empty (e.g. a generation bug writes a
+  // blank string). Canvas's importer treats an empty descriptor as malformed, so flag any present-
+  // but-empty required file. Empty XML is already caught by the parse step below; this covers the
+  // non-XML required files too.
+  const requiredNonEmptyFiles = [
+    "imsmanifest.xml",
+    "course_settings/course_settings.xml",
+    "course_settings/module_meta.xml",
+    "course_settings/assignment_groups.xml",
+    "course_settings/canvas_export.txt",
+    "course_settings/syllabus.html"
+  ];
+  for (const path of requiredNonEmptyFiles) {
+    const entry = zip.file(path);
+    if (!entry) continue; // a genuinely missing required file is already reported above
+    const content = await entry.async("text");
+    if (content.trim().length === 0) fail(`empty-required-${path}`, `Required file ${path} is present but empty.`);
+  }
 
   // Parse every generated XML document (manifest, course settings, QTI, meta, SVG) and fail
   // the package on any that is not well-formed, naming the exact file and parse error. Canvas

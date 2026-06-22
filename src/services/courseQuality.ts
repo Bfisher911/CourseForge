@@ -1,4 +1,5 @@
 import type { CourseProject, CourseQualityCategory, CourseQualityItem, CourseQualityReport } from "../types";
+import { hasUnsafeHtml } from "./htmlSafety";
 import { buildReadinessReport } from "./readiness";
 
 const categoryLabels: Record<CourseQualityCategory, string> = {
@@ -27,8 +28,6 @@ const item = (category: CourseQualityCategory, score: number, reason: string, is
   recommendedFixes,
   autoFixAvailable
 });
-
-const hasUnsafeHtml = (html: string): boolean => /<script[\s>]/i.test(html) || /\son[a-z]+\s*=/i.test(html) || /<iframe[\s>]/i.test(html) || /<object[\s>]/i.test(html);
 
 const contentModules = (course: CourseProject) => course.modules.filter((module) => module.kind === "content");
 

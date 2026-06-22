@@ -4,3 +4,9 @@
 
 [build.environment]
   NODE_VERSION = "20"
+
+# Serverless functions (e.g. the OpenAI proxy at /.netlify/functions/openai).
+# Reads secrets like OPENAI_API_KEY from the environment, never from the client bundle.
+[functions]
+  directory = "netlify/functions"
+  node_bundler = "esbuild"

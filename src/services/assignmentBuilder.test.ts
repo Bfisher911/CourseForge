@@ -8,6 +8,7 @@ import {
   createAssignment,
   deleteAssignment,
   restoreAssignment,
+  sanitizeAssignmentHtmlForPreview,
   validateAssignmentPlan
 } from "./assignmentBuilder";
 import { sampleProject } from "./courseGenerator";
@@ -109,5 +110,20 @@ describe("assignment builder", () => {
 
     expect(report.valid).toBe(false);
     expect(report.issues.some((issue) => issue.id.includes("assignment-quality") && issue.severity === "error")).toBe(true);
+  });
+
+  it("catches hardened unsafe vectors and names them after the shared-safety unification", () => {
+    const course = clone(sampleProject);
+    const assignment = course.assignments[0];
+    course.assignments = course.assignments.map((item) =>
+      item.id === assignment.id
+        ? { ...item, descriptionHtml: "<h2>Task</h2><style>h2{color:red}</style><p>Enough descriptive student-facing assignment text to clear the substance threshold for this validation case.</p>" }
+        : item
+    );
+    const unsafe = validateAssignmentPlan(course).issues.find((issue) => issue.id === `${assignment.id}-unsafe-html`);
+
+    expect(unsafe?.severity).toBe("error");
+    expect(unsafe?.detail).toContain("style blocks");
+    expect(sanitizeAssignmentHtmlForPreview("<p>ok</p><style>p{}</style>")).not.toMatch(/<style/i);
   });
 });

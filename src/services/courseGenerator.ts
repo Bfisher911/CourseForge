@@ -377,8 +377,10 @@ const makeRubric = (
   };
 };
 
-const makeContactHours = (settings: CourseSettings): ContactHourPlan => {
-  const totalHours = settings.creditHours * 45;
+export const HOURS_PER_CREDIT = 45;
+
+export const makeContactHours = (settings: CourseSettings): ContactHourPlan => {
+  const totalHours = settings.creditHours * HOURS_PER_CREDIT;
   const instructionalTime = Math.round(totalHours * 0.22);
   const readingMediaTime = Math.round(totalHours * 0.25);
   const assignmentTime = Math.round(totalHours * 0.22);

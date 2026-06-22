@@ -2,7 +2,10 @@ import {
   AlertTriangle,
   BookOpen,
   CheckCircle2,
+  Clock,
   Copy,
+  Eye,
+  EyeOff,
   FileText,
   Filter,
   LayoutTemplate,
@@ -38,9 +41,12 @@ import {
   type PageTemplateId
 } from "../services/pageBuilder";
 import { stripHtml } from "../utils/text";
+import { aiGeneratePageBody } from "../services/aiBuilders";
+import { useAiAction } from "../hooks/useAiAction";
+import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
-type PageFilter = "all" | "module" | "front-page" | "draft" | "warnings";
+type PageFilter = "all" | "module" | "front-page" | "draft" | "instructor-only" | "warnings";
 type PreviewMode = "desktop" | "tablet" | "mobile";
 
 interface PageSnapshot {
@@ -144,6 +150,7 @@ export function PagesTab({
       if (filter === "module" && (!page.moduleId || page.frontPage || page.slug === "syllabus")) return false;
       if (filter === "front-page" && !page.frontPage) return false;
       if (filter === "draft" && page.publishState !== "unpublished") return false;
+      if (filter === "instructor-only" && pageRole(page) !== "Instructor-only") return false;
       if (filter === "warnings" && issues.length === 0) return false;
       return true;
     });
@@ -199,6 +206,22 @@ export function PagesTab({
     const pageId = `page_custom_${Date.now().toString(36)}`;
     onUpdateCourse((current) => createPage(current, { templateId: selectedTemplateId, pageId }));
     setSelectedPageId(pageId);
+  };
+
+  const ai = useAiAction();
+
+  const generateWithAi = (page: CoursePage): void => {
+    pushSnapshot(page, "Generate with AI");
+    void ai.run(
+      () => aiGeneratePageBody(course, page),
+      (bodyHtml) =>
+        updatePage(page.id, (item, timestamp) => ({
+          ...item,
+          bodyHtml,
+          status: "edited",
+          metadata: touchMetadata(item.metadata, timestamp)
+        }))
+    );
   };
 
   const applyTemplate = (page: CoursePage): void => {
@@ -345,6 +368,7 @@ export function PagesTab({
             <option value="module">Module pages</option>
             <option value="front-page">Front page</option>
             <option value="draft">Draft/unpublished</option>
+            <option value="instructor-only">Instructor-only</option>
             <option value="warnings">Validation warnings</option>
           </select>
         </label>
@@ -366,7 +390,13 @@ export function PagesTab({
                 className={`page-list-card ${selectedPage?.id === page.id ? "active" : ""} ${issues.some((issue) => issue.severity === "error") ? "has-errors" : ""}`}
                 onClick={() => setSelectedPageId(page.id)}
               >
-                <span className={`page-status ${issues.length ? "review" : "ready"}`}>{issueLabel(issues)}</span>
+                <span className="page-list-badges">
+                  <span className={`page-status ${issues.length ? "review" : "ready"}`}>{issueLabel(issues)}</span>
+                  <span className={`page-publish-badge ${page.publishState === "published" ? "published" : "draft"}`}>
+                    {page.publishState === "published" ? <Eye size={12} /> : <EyeOff size={12} />}
+                    {page.publishState === "published" ? "Published" : "Draft"}
+                  </span>
+                </span>
                 <strong>{page.title || "Untitled page"}</strong>
                 <small>{snippet(page.bodyHtml)}</small>
                 <div>
@@ -381,6 +411,9 @@ export function PagesTab({
                   </span>
                   <span>
                     <FileText size={13} /> {summary?.wordCount ?? 0} words
+                  </span>
+                  <span>
+                    <Clock size={13} /> {summary?.readingMinutes ?? 1} min read
                   </span>
                 </div>
               </button>
@@ -472,15 +505,20 @@ export function PagesTab({
                   type="checkbox"
                   checked={Boolean(selectedPage.frontPage)}
                   onChange={(event) => {
-                    if (!event.target.checked) return;
+                    const makeFront = event.target.checked;
+                    const timestamp = new Date().toISOString();
                     onUpdateCourse((current) => ({
                       ...current,
-                      pages: current.pages.map((page) => ({
-                        ...page,
-                        frontPage: page.id === selectedPage.id,
-                        status: page.id === selectedPage.id || page.frontPage ? "edited" : page.status,
-                        metadata: page.id === selectedPage.id || page.frontPage ? touchMetadata(page.metadata, new Date().toISOString()) : page.metadata
-                      }))
+                      pages: current.pages.map((page) => {
+                        const nextFront = makeFront ? page.id === selectedPage.id : page.id === selectedPage.id ? false : Boolean(page.frontPage);
+                        const changed = Boolean(page.frontPage) !== nextFront;
+                        return {
+                          ...page,
+                          frontPage: nextFront,
+                          status: changed ? "edited" : page.status,
+                          metadata: changed ? touchMetadata(page.metadata, timestamp) : page.metadata
+                        };
+                      })
                     }));
                   }}
                 />
@@ -503,10 +541,12 @@ export function PagesTab({
                 <button className="secondary" onClick={() => applyTemplate(selectedPage)}>
                   <Save size={14} /> Apply template
                 </button>
+                <AiGenerateButton running={ai.running} onClick={() => generateWithAi(selectedPage)} />
                 <button className="secondary" onClick={restoreLatest} disabled={!latestSnapshot}>
                   <Undo2 size={14} /> Restore previous
                 </button>
               </div>
+              <AiSourceNote running={ai.running} error={ai.error} status={ai.status} />
               {latestSnapshot && (
                 <p className="page-snapshot-note">
                   Latest snapshot: {latestSnapshot.reason}, {relativeTime(latestSnapshot.createdAt)}. Score then: {latestSnapshot.score}%.

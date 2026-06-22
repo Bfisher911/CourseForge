@@ -1,5 +1,6 @@
 import type { Assignment, CourseModule, CourseOutcome, CourseProject, ModuleItem, ObjectMetadata, Rubric } from "../types";
 import { nowIso, slugify, stripHtml } from "../utils/text";
+import { sanitizeHtmlForPreview, unsafeHtmlDetail } from "./htmlSafety";
 
 export type AssignmentTemplateId =
   | "essay-paper"
@@ -332,12 +333,6 @@ const hrefsFrom = (html: string): string[] => Array.from(html.matchAll(/href\s*=
 const anchorTextsFrom = (html: string): string[] =>
   Array.from(html.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/gi)).map((match) => stripHtml(match[1]).trim().toLowerCase());
 
-const hasUnsafeHtml = (html: string): boolean =>
-  /<script[\s>]/i.test(html) ||
-  /\son[a-z]+\s*=/i.test(html) ||
-  /javascript\s*:/i.test(html) ||
-  /<(iframe|object|embed|form|input|button)[\s>]/i.test(html);
-
 const imagesWithoutAlt = (html: string): number =>
   Array.from(html.matchAll(/<img\b[^>]*>/gi)).filter((match) => !/\salt\s*=\s*["'][^"']+["']/i.test(match[0])).length;
 
@@ -386,7 +381,8 @@ export const validateAssignmentPlan = (course: CourseProject): AssignmentPlanVal
     if (!validSubmissionType(assignment.submissionType)) add(assignment, "submission", "warning", "Submission type unclear", "Use a Canvas-friendly submission type such as online upload, text entry, URL, media, or none.");
     if (!/(deliverable|submit|submission|artifact|paper|presentation|report|file|portfolio|final deliverable)/i.test(text)) add(assignment, "deliverables", "warning", "Deliverables unclear", "Name exactly what students submit.");
     if (!/(grading|rubric|criteria|points|success|before you submit|will be graded)/i.test(text)) add(assignment, "grading", "warning", "Grading path unclear", "Reference rubric criteria, point value, or success markers.");
-    if (hasUnsafeHtml(assignment.descriptionHtml)) add(assignment, "unsafe-html", "error", "Unsafe HTML", "Remove scripts, event handlers, JavaScript links, forms, embeds, or other Canvas-hostile HTML.");
+    const unsafeDetail = unsafeHtmlDetail(assignment.descriptionHtml, "assignment");
+    if (unsafeDetail) add(assignment, "unsafe-html", "error", "Unsafe HTML", unsafeDetail);
     if (imagesWithoutAlt(assignment.descriptionHtml) > 0) add(assignment, "image-alt", "warning", "Image alt text missing", "Add alt text to meaningful images or mark decorative images appropriately before export.");
 
     const weakLinks = anchorTextsFrom(assignment.descriptionHtml).filter((textValue) => /^(click here|here|link|read more|more)$/i.test(textValue));
@@ -553,13 +549,8 @@ export const restoreAssignment = (course: CourseProject, assignment: Assignment,
   return changeAssignmentModule(withAssignment, assignment.id, assignment.moduleId, timestamp);
 };
 
-export const sanitizeAssignmentHtmlForPreview = (html: string): string =>
-  html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/\son[a-z]+\s*=\s*(".*?"|'.*?'|[^\s>]+)/gi, "")
-    .replace(/href\s*=\s*["']\s*javascript:[^"']*["']/gi, 'href="#"')
-    .replace(/<(iframe|object|embed|form|input|button)\b[\s\S]*?<\/\1>/gi, "")
-    .replace(/<(iframe|object|embed|form|input|button)\b[^>]*>/gi, "");
+// Shared Canvas preview sanitizer (htmlSafety.ts), aliased so AssignmentsTab keeps its import.
+export const sanitizeAssignmentHtmlForPreview = sanitizeHtmlForPreview;
 
 export const rubricForAssignment = (course: CourseProject, assignment: Assignment): Rubric | undefined =>
   assignment.rubricId ? course.rubrics.find((rubric) => rubric.id === assignment.rubricId) : undefined;

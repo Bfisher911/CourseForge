@@ -16,6 +16,9 @@ import {
   validateQuizPlan,
   type QuizTemplateId
 } from "../services/quizBuilder";
+import { aiGenerateQuizQuestions } from "../services/aiBuilders";
+import { useAiAction } from "../hooks/useAiAction";
+import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
 
 interface QuizzesTabProps {
   course: CourseProject;
@@ -101,6 +104,21 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab }: QuizzesTabPr
     pushSnapshot(selectedQuiz, `Added ${QUIZ_TEMPLATES.find((template) => template.id === templateId)?.name ?? "question"} question`);
     const question = buildQuizQuestionTemplate(templateId, course, selectedQuiz);
     updateSelectedQuiz((quiz) => ({ ...quiz, questions: [...quiz.questions, question], points: quiz.points + question.points, status: "edited" }));
+  };
+
+  const ai = useAiAction();
+
+  const generateQuestions = () => {
+    if (!selectedQuiz) return;
+    pushSnapshot(selectedQuiz, "Generate questions with AI");
+    void ai.run(
+      () => aiGenerateQuizQuestions(course, selectedQuiz),
+      (questions) =>
+        updateSelectedQuiz((quiz) => {
+          const merged = [...quiz.questions, ...questions];
+          return { ...quiz, questions: merged, points: quizPoints({ ...quiz, questions: merged }), status: "edited" };
+        })
+    );
   };
 
   const duplicateQuestion = (question: QuizQuestion) => {
@@ -250,8 +268,10 @@ export function QuizzesTab({ course, onUpdateCourse, onJumpToTab }: QuizzesTabPr
             <div className="quiz-template-bar">
               <label><Wand2 size={14} /> Template<select value={selectedTemplate} onChange={(event) => setSelectedTemplate(event.target.value as QuizTemplateId)}>{QUIZ_TEMPLATES.map((template) => <option key={template.id} value={template.id}>{template.name}</option>)}</select></label>
               <button className="primary" onClick={() => addQuestion()}><Plus size={15} /> Add question</button>
+              <AiGenerateButton running={ai.running} onClick={generateQuestions} label="Generate questions with AI" />
               <button disabled={!latestSnapshot} onClick={() => { if (!latestSnapshot) return; onUpdateCourse((current) => restoreQuiz(current, latestSnapshot.quiz)); setSnapshots((current) => current.filter((snapshot) => snapshot.id !== latestSnapshot.id)); }}><RotateCcw size={15} /> Restore previous</button>
             </div>
+            <AiSourceNote running={ai.running} error={ai.error} status={ai.status} />
             {latestSnapshot && <p className="quiz-snapshot-note">Latest snapshot: {latestSnapshot.reason}, {latestSnapshot.createdAt}. Score then: {latestSnapshot.score}%.</p>}
             <div className="quiz-template-grid">
               {QUIZ_TEMPLATES.map((template) => (

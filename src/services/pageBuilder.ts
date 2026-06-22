@@ -1,5 +1,10 @@
 import type { CourseModule, CoursePage, CourseProject, ModuleItem, ModuleItemType, ObjectMetadata, PublishState } from "../types";
 import { nowIso, slugify, stripHtml } from "../utils/text";
+import { sanitizeHtmlForPreview, unsafeHtmlDetail } from "./htmlSafety";
+
+// Canvas HTML safety is defined once in htmlSafety.ts and shared by every builder, the readiness
+// report, and the export validator. Re-exported here so existing page imports keep working.
+export { unsafeHtmlReasons } from "./htmlSafety";
 
 export type PageTemplateId =
   | "module-overview"
@@ -264,14 +269,29 @@ const hrefsFrom = (html: string): string[] => Array.from(html.matchAll(/href\s*=
 const anchorTextsFrom = (html: string): string[] =>
   Array.from(html.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/gi)).map((match) => stripHtml(match[1]).trim().toLowerCase());
 
-const hasUnsafeHtml = (html: string): boolean =>
-  /<script[\s>]/i.test(html) ||
-  /\son[a-z]+\s*=/i.test(html) ||
-  /javascript\s*:/i.test(html) ||
-  /<(iframe|object|embed|form|input|button)[\s>]/i.test(html);
-
 const imageTagsMissingAlt = (html: string): number =>
   Array.from(html.matchAll(/<img\b[^>]*>/gi)).filter((match) => !/\salt\s*=/i.test(match[0])).length;
+
+// A truly empty heading (no text and no child content) gives screen-reader users a navigation
+// landmark that announces nothing. Headings whose only child is an image with alt text are not
+// matched, so this never punishes a legitimate image heading.
+const hasEmptyHeading = (html: string): boolean =>
+  /<h([1-6])\b[^>]*>(?:\s|&nbsp;|&#160;|&#xa0;)*<\/h\1>/i.test(html);
+
+// Data tables that carry no <th> header cells (and are not explicitly marked as layout tables)
+// are unreadable with a screen reader, which cannot announce which column or row a cell belongs
+// to. Tables flagged role="presentation"/"none" are layout-only and exempt.
+const dataTablesMissingHeaders = (html: string): number =>
+  Array.from(html.matchAll(/<table\b([^>]*)>([\s\S]*?)<\/table>/gi)).filter(
+    (match) => !/role\s*=\s*["']?(presentation|none)/i.test(match[1]) && !/<th[\s>]/i.test(match[2])
+  ).length;
+
+// Links that open a new tab without rel="noopener" leak the opener reference (a tabnabbing risk)
+// and, for screen-reader users, give no warning that focus is about to jump to a new window.
+const blankTargetLinksMissingRel = (html: string): number =>
+  Array.from(html.matchAll(/<a\b[^>]*>/gi)).filter(
+    (match) => /target\s*=\s*["']?_blank/i.test(match[0]) && !/rel\s*=\s*["'][^"']*noopener/i.test(match[0])
+  ).length;
 
 const knownTargetsFor = (course: CourseProject): Set<string> => {
   const targets = new Set<string>();
@@ -305,9 +325,12 @@ export const validatePagePlan = (course: CourseProject): PagePlanValidation => {
   const knownTargets = knownTargetsFor(course);
   const slugCounts = new Map<string, number>();
   const titleCounts = new Map<string, number>();
+  const exportPathCounts = new Map<string, number>();
   course.pages.forEach((page) => {
     slugCounts.set(page.slug, (slugCounts.get(page.slug) ?? 0) + 1);
     titleCounts.set(page.title.trim().toLowerCase(), (titleCounts.get(page.title.trim().toLowerCase()) ?? 0) + 1);
+    const exportKey = slugify(page.slug || page.title);
+    exportPathCounts.set(exportKey, (exportPathCounts.get(exportKey) ?? 0) + 1);
   });
 
   const add = (page: CoursePage, id: string, severity: PageIssueSeverity, title: string, detail: string): void => {
@@ -323,14 +346,20 @@ export const validatePagePlan = (course: CourseProject): PagePlanValidation => {
     if (!page.title.trim()) add(page, "title", "error", "Title missing", "Canvas pages need a clear student-facing title.");
     if (!page.slug.trim()) add(page, "slug", "error", "Slug missing", "Canvas export paths need a stable page slug.");
     if ((slugCounts.get(page.slug) ?? 0) > 1) add(page, "slug-duplicate", "error", "Slug is duplicated", "Each Canvas page slug should be unique before export.");
+    else if ((exportPathCounts.get(slugify(page.slug || page.title)) ?? 0) > 1) {
+      add(page, "slug-collision", "error", "Export path collides", "Two pages resolve to the same wiki_content file path, so one would overwrite the other. Give this page a distinct slug.");
+    }
     if ((titleCounts.get(page.title.trim().toLowerCase()) ?? 0) > 1) add(page, "title-duplicate", "warning", "Title is duplicated", "Duplicate titles make it harder to find the right page in Canvas.");
     if (h1Count !== 1) add(page, "h1", h1Count === 0 ? "warning" : "error", "H1 needs review", h1Count === 0 ? "Add one clear H1 so the page has a student-facing heading." : "Use only one H1 and lower-level headings for sections.");
     headings.forEach((heading, index) => {
       const previous = headings[index - 1];
       if (previous && heading - previous > 1) add(page, `heading-order-${index}`, "warning", "Heading order jumps", "Avoid skipping heading levels so screen-reader navigation stays predictable.");
     });
-    if (hasUnsafeHtml(page.bodyHtml)) add(page, "unsafe-html", "error", "Unsafe HTML", "Remove scripts, event handlers, JavaScript links, forms, embeds, or other Canvas-hostile HTML.");
+    const unsafeDetail = unsafeHtmlDetail(page.bodyHtml, "page");
+    if (unsafeDetail) add(page, "unsafe-html", "error", "Unsafe HTML", unsafeDetail);
     if (imageTagsMissingAlt(page.bodyHtml) > 0) add(page, "image-alt", "warning", "Image alt attribute missing", "Add alt text or an empty alt attribute for decorative images.");
+    if (hasEmptyHeading(page.bodyHtml)) add(page, "empty-heading", "warning", "Empty heading", "Remove or fill empty headings so screen-reader navigation is not cluttered with blank landmarks.");
+    if (dataTablesMissingHeaders(page.bodyHtml) > 0) add(page, "table-headers", "warning", "Table needs header cells", "Add <th> header cells (or mark the table role=\"presentation\" if it is layout-only) so the data is readable with a screen reader.");
     if (visibleText.length < 160) add(page, "substance", "warning", "Page is thin", "Add enough student-facing explanation, steps, examples, or next actions.");
     if (page.moduleId && !moduleIds.has(page.moduleId)) add(page, "module-missing", "error", "Module missing", "The page references a module that no longer exists.");
     if (page.moduleId && moduleItems.length > 0 && moduleItems.some(({ moduleId }) => moduleId !== page.moduleId)) {
@@ -346,8 +375,13 @@ export const validatePagePlan = (course: CourseProject): PagePlanValidation => {
       add(page, "instructor-published", "error", "Instructor-only page is published", "Instructor-only planning and review pages should remain unpublished.");
     }
 
-    const weakLinks = anchorTextsFrom(page.bodyHtml).filter((text) => /^(click here|here|link|read more|more)$/i.test(text));
+    const weakLinks = anchorTextsFrom(page.bodyHtml).filter((text) =>
+      /^(click here|click|here|link|read more|read|more|details|this|this page|this link|learn more|see here|go|continue|download)$/i.test(text)
+    );
     if (weakLinks.length > 0) add(page, "link-text", "warning", "Link text is vague", "Use descriptive link text so students and screen readers know where links go.");
+    if (blankTargetLinksMissingRel(page.bodyHtml) > 0) {
+      add(page, "link-target", "warning", "New-tab link needs rel=\"noopener\"", "Links that open a new tab should include rel=\"noopener\" and tell students they open a new window.");
+    }
     const placeholderLinks = hrefsFrom(page.bodyHtml).filter((href) => href === "" || href === "#" || href.includes("TODO_LINK"));
     if (placeholderLinks.length > 0) add(page, "placeholder-links", "warning", "Placeholder link present", "Replace empty, hash, or TODO links before export.");
     const brokenLinks = hrefsFrom(page.bodyHtml)
@@ -546,10 +580,6 @@ export const restorePage = (course: CourseProject, page: CoursePage, timestamp =
   return changePageModule(withPage, page.id, page.moduleId, timestamp);
 };
 
-export const sanitizePageHtmlForPreview = (html: string): string =>
-  html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/\son[a-z]+\s*=\s*(".*?"|'.*?'|[^\s>]+)/gi, "")
-    .replace(/href\s*=\s*["']\s*javascript:[^"']*["']/gi, 'href="#"')
-    .replace(/<(iframe|object|embed|form|input|button)\b[\s\S]*?<\/\1>/gi, "")
-    .replace(/<(iframe|object|embed|form|input|button)\b[^>]*>/gi, "");
+// Shared Canvas preview sanitizer (defined in htmlSafety.ts). Aliased under the page-specific
+// name so existing PagesTab and test imports keep working.
+export const sanitizePageHtmlForPreview = sanitizeHtmlForPreview;

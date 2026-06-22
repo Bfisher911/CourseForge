@@ -11,3 +11,8 @@ courseforge-*.imscc
 
 # Local Netlify folder
 .netlify
+
+# Local env files with secrets (keep .env.example tracked as the template)
+.env
+.env.local
+.env.*.local

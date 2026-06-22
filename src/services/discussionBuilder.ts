@@ -1,5 +1,6 @@
 import type { CourseModule, CourseOutcome, CourseProject, Discussion, ModuleItem, ObjectMetadata, Rubric } from "../types";
 import { nowIso, slugify, stripHtml } from "../utils/text";
+import { sanitizeHtmlForPreview, unsafeHtmlDetail } from "./htmlSafety";
 
 export type DiscussionTemplateId =
   | "evidence-based"
@@ -249,12 +250,6 @@ export const reviseDiscussionPrompt = (discussion: Discussion, course: CoursePro
 const hrefsFrom = (html: string): string[] => Array.from(html.matchAll(/href\s*=\s*["']([^"']*)["']/gi)).map((match) => match[1].trim());
 const anchorTextsFrom = (html: string): string[] =>
   Array.from(html.matchAll(/<a\b[^>]*>([\s\S]*?)<\/a>/gi)).map((match) => stripHtml(match[1]).trim().toLowerCase());
-const hasUnsafeHtml = (html: string): boolean =>
-  /<script[\s>]/i.test(html) ||
-  /\son[a-z]+\s*=/i.test(html) ||
-  /javascript\s*:/i.test(html) ||
-  /<(iframe|object|embed|form|input|button)[\s>]/i.test(html);
-
 const knownTargetsFor = (course: CourseProject): Set<string> => {
   const targets = new Set<string>();
   course.pages.forEach((page) => {
@@ -298,7 +293,8 @@ export const validateDiscussionPlan = (course: CourseProject): DiscussionPlanVal
     if (!moduleIds.has(discussion.moduleId)) add(discussion, "module", "error", "Module missing", "Choose a module that exists in the course sequence.");
     if (discussion.points > 0 && course.rubrics.length > 0 && (!discussion.rubricId || !rubricIds.has(discussion.rubricId))) add(discussion, "rubric", "warning", "Rubric not attached", "Attach a rubric or confirm this graded discussion should be reviewed without one.");
     if (discussion.alignedOutcomeIds.length === 0 || discussion.alignedOutcomeIds.some((outcomeId) => !outcomeIds.has(outcomeId))) add(discussion, "outcomes", "warning", "Outcomes not aligned", "Select at least one valid outcome so discussion alignment is visible.");
-    if (hasUnsafeHtml(discussion.promptHtml)) add(discussion, "unsafe-html", "error", "Unsafe HTML", "Remove scripts, event handlers, JavaScript links, forms, embeds, or other Canvas-hostile HTML.");
+    const unsafeDetail = unsafeHtmlDetail(discussion.promptHtml, "discussion");
+    if (unsafeDetail) add(discussion, "unsafe-html", "error", "Unsafe HTML", unsafeDetail);
     const weakLinks = anchorTextsFrom(discussion.promptHtml).filter((textValue) => /^(click here|here|link|read more|more)$/i.test(textValue));
     if (weakLinks.length > 0) add(discussion, "link-text", "warning", "Link text is vague", "Use descriptive link text so students and screen readers know where links go.");
     const brokenLinks = hrefsFrom(discussion.promptHtml)
@@ -482,13 +478,8 @@ export const restoreDiscussion = (course: CourseProject, discussion: Discussion,
   return changeDiscussionModule(withDiscussion, discussion.id, discussion.moduleId, timestamp);
 };
 
-export const sanitizeDiscussionHtmlForPreview = (html: string): string =>
-  html
-    .replace(/<script[\s\S]*?<\/script>/gi, "")
-    .replace(/\son[a-z]+\s*=\s*(".*?"|'.*?'|[^\s>]+)/gi, "")
-    .replace(/href\s*=\s*["']\s*javascript:[^"']*["']/gi, 'href="#"')
-    .replace(/<(iframe|object|embed|form|input|button)\b[\s\S]*?<\/\1>/gi, "")
-    .replace(/<(iframe|object|embed|form|input|button)\b[^>]*>/gi, "");
+// Shared Canvas preview sanitizer (htmlSafety.ts), aliased so DiscussionsTab keeps its import.
+export const sanitizeDiscussionHtmlForPreview = sanitizeHtmlForPreview;
 
 export const rubricForDiscussion = (course: CourseProject, discussion: Discussion): Rubric | undefined =>
   discussion.rubricId ? course.rubrics.find((rubric) => rubric.id === discussion.rubricId) : undefined;

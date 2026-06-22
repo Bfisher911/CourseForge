@@ -34,6 +34,9 @@ import {
 } from "../services/homepageTemplates";
 import { validateHomepage, type HomepageValidationResult } from "../services/homepageValidation";
 import { slugify } from "../utils/text";
+import { aiGenerateHomepageContent } from "../services/aiBuilders";
+import { useAiAction } from "../hooks/useAiAction";
+import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
 import type { CourseProject, HomepageContent, HomepageLink, HomepageSnapshot, HomepageState } from "../types";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
@@ -120,6 +123,7 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
   const [advancedOpen, setAdvancedOpen] = useState(false);
   const [openSections, setOpenSections] = useState<Record<string, boolean>>({ hero: true, buttons: true, path: true });
   const [compareId, setCompareId] = useState<string | null>(null);
+  const ai = useAiAction();
 
   // Lazily initialize builder state for legacy / imported courses that predate the homepage model.
   useEffect(() => {
@@ -200,6 +204,21 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
     if (!state) return;
     const html = renderHomepage(state.templateId, state.content, course.theme);
     writeHomepage({ ...state, mode: "builder", themeId: course.theme.id, updatedAt: new Date().toISOString(), snapshots: withSnapshot("Before theme refresh", state.snapshots) }, html);
+  };
+
+  const generateWithAi = (): void => {
+    if (!state) return;
+    const baseState = state;
+    void ai.run(
+      () => aiGenerateHomepageContent(course, baseState.content),
+      (next) => {
+        const html = renderHomepage(baseState.templateId, next, course.theme);
+        writeHomepage(
+          { ...baseState, content: next, mode: "builder", themeId: course.theme.id, updatedAt: new Date().toISOString(), snapshots: withSnapshot("Before Generate with AI", baseState.snapshots) },
+          html
+        );
+      }
+    );
   };
 
   const saveSnapshot = (): void => {
@@ -329,6 +348,8 @@ export function HomepageTab({ course, onUpdateCourse }: { course: CourseProject;
                     </button>
                   ))}
                 </div>
+                <AiGenerateButton running={ai.running} onClick={generateWithAi} label="Generate homepage with AI" />
+                <AiSourceNote running={ai.running} error={ai.error} status={ai.status} />
               </div>
 
               {content && (

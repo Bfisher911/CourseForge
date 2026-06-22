@@ -9,6 +9,7 @@ import {
   deleteDiscussion,
   duplicateDiscussion,
   restoreDiscussion,
+  sanitizeDiscussionHtmlForPreview,
   validateDiscussionPlan
 } from "./discussionBuilder";
 import { sampleProject } from "./courseGenerator";
@@ -132,5 +133,20 @@ describe("discussion builder", () => {
 
     expect(report.valid).toBe(false);
     expect(report.issues.some((issue) => issue.id.includes("discussion-quality") && issue.severity === "error")).toBe(true);
+  });
+
+  it("catches hardened unsafe vectors and names them after the shared-safety unification", () => {
+    const course = clone(sampleProject);
+    const discussion = course.discussions[0];
+    course.discussions = course.discussions.map((item) =>
+      item.id === discussion.id
+        ? { ...item, promptHtml: '<h2>Prompt</h2><iframe src="https://x"></iframe><p>Enough descriptive student-facing discussion text to clear the substance threshold for this validation case.</p>' }
+        : item
+    );
+    const unsafe = validateDiscussionPlan(course).issues.find((issue) => issue.id === `${discussion.id}-unsafe-html`);
+
+    expect(unsafe?.severity).toBe("error");
+    expect(unsafe?.detail).toContain("frames");
+    expect(sanitizeDiscussionHtmlForPreview('<p>ok</p><iframe src="x"></iframe>')).not.toMatch(/<iframe/i);
   });
 });

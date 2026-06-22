@@ -1,5 +1,6 @@
 import type { CourseModule, CourseProject, ModuleItem, ObjectMetadata, Quiz, QuizDifficulty, QuizQuestion, QuizQuestionType } from "../types";
 import { nowIso, slugify, stripHtml } from "../utils/text";
+import { unsafeHtmlDetail } from "./htmlSafety";
 
 export type QuizTemplateId =
   | "concept-check"
@@ -159,7 +160,6 @@ export const buildQuizQuestionTemplate = (
 };
 
 const hrefsFrom = (html: string): string[] => Array.from(html.matchAll(/href\s*=\s*["']([^"']*)["']/gi)).map((match) => match[1].trim());
-const hasUnsafeHtml = (html: string): boolean => /<script[\s>]/i.test(html) || /\son[a-z]+\s*=/i.test(html) || /javascript\s*:/i.test(html) || /<(iframe|object|embed|form|input|button)[\s>]/i.test(html);
 
 export const validateQuizPlan = (course: CourseProject): QuizPlanValidation => {
   const issues: QuizIssue[] = [];
@@ -190,7 +190,8 @@ export const validateQuizPlan = (course: CourseProject): QuizPlanValidation => {
       .filter((href) => href && href !== "#" && !/^https?:\/\//i.test(href) && !/^mailto:/i.test(href) && !href.startsWith("#"))
       .filter((href) => !knownTargets.has(href.replace(/^\.\//, "")))
       .forEach((href) => add(quiz, "broken-links", "warning", "Internal link may not resolve", `Check ${href} before export.`));
-    if (hasUnsafeHtml(quiz.purpose)) add(quiz, "unsafe-purpose", "error", "Unsafe quiz purpose", "Remove scripts, event handlers, JavaScript links, forms, or embeds.");
+    const unsafePurpose = unsafeHtmlDetail(quiz.purpose, "quiz purpose");
+    if (unsafePurpose) add(quiz, "unsafe-purpose", "error", "Unsafe quiz purpose", unsafePurpose);
 
     quiz.questions.forEach((question) => {
       const text = stripHtml(question.stem);
@@ -204,7 +205,8 @@ export const validateQuizPlan = (course: CourseProject): QuizPlanValidation => {
       if ((question.type === "multiple_choice" || question.type === "true_false") && !question.correctFeedback && !question.incorrectFeedback && !question.feedback) add(quiz, "feedback", "warning", "Feedback missing", "Add feedback so students know why an answer is right or wrong.", question);
       if (question.alignedOutcomeIds.length === 0 || question.alignedOutcomeIds.some((outcomeId) => !outcomeIds.has(outcomeId))) add(quiz, "outcomes", "warning", "Question outcomes missing", "Align the question to at least one valid outcome.", question);
       if (question.moduleId !== quiz.moduleId) add(quiz, "question-module", "error", "Question module mismatch", "Question module IDs should match the parent quiz.", question);
-      if (hasUnsafeHtml(`${question.stem} ${question.feedback ?? ""} ${question.correctFeedback ?? ""} ${question.incorrectFeedback ?? ""}`)) add(quiz, "unsafe-html", "error", "Unsafe question HTML", "Remove scripts, event handlers, JavaScript links, forms, or embeds.", question);
+      const unsafeQuestion = unsafeHtmlDetail(`${question.stem} ${question.feedback ?? ""} ${question.correctFeedback ?? ""} ${question.incorrectFeedback ?? ""}`, "question");
+      if (unsafeQuestion) add(quiz, "unsafe-html", "error", "Unsafe question HTML", unsafeQuestion, question);
     });
   });
 

@@ -39,6 +39,9 @@ import {
   type DiscussionTemplateId
 } from "../services/discussionBuilder";
 import { stripHtml } from "../utils/text";
+import { aiGenerateDiscussionPrompt } from "../services/aiBuilders";
+import { useAiAction } from "../hooks/useAiAction";
+import { AiGenerateButton, AiSourceNote } from "./AiGenerateButton";
 
 type UpdateCourse = (updater: (current: CourseProject) => CourseProject) => void;
 type RubricFilter = "all" | "with-rubric" | "without-rubric";
@@ -234,6 +237,24 @@ export function DiscussionsTab({
           : item
       )
     }));
+  };
+
+  const ai = useAiAction();
+
+  const generateWithAi = (discussion: Discussion): void => {
+    pushSnapshot(discussion, "Generate with AI");
+    void ai.run(
+      () => aiGenerateDiscussionPrompt(course, discussion),
+      (promptHtml) =>
+        onUpdateCourse((current) => ({
+          ...current,
+          discussions: current.discussions.map((item) =>
+            item.id === discussion.id
+              ? { ...item, promptHtml, status: "edited", metadata: touchMetadata(item.metadata, new Date().toISOString()) }
+              : item
+          )
+        }))
+    );
   };
 
   const runReviseAction = (discussion: Discussion, action: DiscussionReviseAction): void => {
@@ -626,10 +647,12 @@ export function DiscussionsTab({
                 <button className="secondary" onClick={() => applyTemplate(selectedDiscussion)}>
                   <Save size={14} /> Apply template
                 </button>
+                <AiGenerateButton running={ai.running} onClick={() => generateWithAi(selectedDiscussion)} />
                 <button className="secondary" onClick={restoreLatest} disabled={!latestSnapshot}>
                   <Undo2 size={14} /> Restore previous
                 </button>
               </div>
+              <AiSourceNote running={ai.running} error={ai.error} status={ai.status} />
               {latestSnapshot && (
                 <p className="discussion-snapshot-note">
                   Latest snapshot: {latestSnapshot.reason}, {relativeTime(latestSnapshot.createdAt)}. Score then: {latestSnapshot.score}%.
