@@ -3,6 +3,7 @@
 // it would leak the service role key. Bundled by Netlify esbuild, not the Vite/tsc app build.
 
 import { createClient, type SupabaseClient } from "@supabase/supabase-js";
+import WebSocket from "ws";
 
 declare const process: { env: Record<string, string | undefined> };
 
@@ -15,6 +16,11 @@ export const getSupabaseAdmin = (): SupabaseClient => {
   if (!url || !serviceRole) {
     throw new Error("Supabase admin is not configured: set SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY.");
   }
-  cached = createClient(url, serviceRole, { auth: { persistSession: false, autoRefreshToken: false } });
+  cached = createClient(url, serviceRole, {
+    auth: { persistSession: false, autoRefreshToken: false },
+    // Netlify Functions run Node 20 (no native WebSocket); supply `ws` so supabase-js's Realtime
+    // client construction doesn't throw. We never use Realtime server-side.
+    realtime: { transport: WebSocket as unknown as typeof globalThis.WebSocket }
+  });
   return cached;
 };
