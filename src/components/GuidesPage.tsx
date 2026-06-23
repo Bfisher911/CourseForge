@@ -14,7 +14,7 @@ import {
   Upload
 } from "lucide-react";
 
-// Public "Guides / How It Works" hub. Everything lives on this one page — there is no routing here.
+// Public "Guides / How It Works" hub. Everything lives on this one page, there is no routing here.
 // The page intentionally uses qualified language about Canvas: RocketCourse produces a Canvas-oriented
 // .imscc package designed for Canvas import workflows, but import is NOT yet sandbox-verified, so we
 // always tell users to test in a blank/sandbox Canvas course first and to review everything before
@@ -37,11 +37,11 @@ export function GuidesPage({
             <BookOpen size={14} /> Guides
           </span>
           <h1>
-            How <span className="gradient-text">RocketCourse</span> works, start to finish
+            How <span className="accent-text">RocketCourse</span> works, start to finish
           </h1>
           <p>
             RocketCourse builds a Canvas-oriented <strong>.imscc</strong> package designed for Canvas
-            import workflows. These guides walk you through every path — starting from scratch, improving
+            import workflows. These guides walk you through every path, starting from scratch, improving
             an existing course, importing your package, exporting a single quiz, printing quizzes, and
             generating PDFs. Canvas import is <strong>not yet sandbox-verified</strong>, so always test in
             a blank or sandbox Canvas course first and review everything before you publish.
@@ -65,7 +65,7 @@ export function GuidesPage({
             <span className="step-index">1</span>
             <h3>Build in RocketCourse</h3>
             <p>
-              Create your course content — pages, syllabus, assignments, quizzes, and grading — using the
+              Create your course content, pages, syllabus, assignments, quizzes, and grading, using the
               builder tabs. Edit until it reads the way you want.
             </p>
           </article>
@@ -90,14 +90,14 @@ export function GuidesPage({
         </div>
       </section>
 
-      {/* Guide cards grid — visual summaries; authoritative content is in the <details> below */}
+      {/* Guide cards grid, visual summaries; authoritative content is in the <details> below */}
       <section className="landing-section">
         <span className="section-eyebrow">
           <HelpCircle size={14} /> Pick your path
         </span>
         <h2>Which guide do you need?</h2>
         <p>
-          Each card maps to an in-depth guide further down this page. They are quick summaries — open the
+          Each card maps to an in-depth guide further down this page. They are quick summaries, open the
           matching expandable section below for the full, step-by-step instructions and warnings.
         </p>
         <div className="feature-grid">
@@ -136,7 +136,7 @@ export function GuidesPage({
             </span>
             <h3>Add only a quiz</h3>
             <p>
-              Export one quiz as a QTI file and import just that quiz into Canvas — then verify it carefully.
+              Export one quiz as a QTI file and import just that quiz into Canvas, then verify it carefully.
             </p>
           </article>
           <article className="feature-card">
@@ -163,7 +163,7 @@ export function GuidesPage({
             </span>
             <h3>Add only new content</h3>
             <p>
-              Do a partial export of just what changed since last time — and avoid creating duplicates.
+              Do a partial export of just what changed since last time, and avoid creating duplicates.
             </p>
           </article>
           <article className="feature-card">
@@ -179,7 +179,7 @@ export function GuidesPage({
         </div>
       </section>
 
-      {/* In-depth guides — native <details>/<summary>, work with zero JS */}
+      {/* In-depth guides, native <details>/<summary>, work with zero JS */}
       <section className="landing-section">
         <span className="section-eyebrow">
           <BookOpen size={14} /> In-depth guides
@@ -200,7 +200,7 @@ export function GuidesPage({
             </p>
             <ol>
               <li>
-                In Canvas, create or locate a <strong>blank course</strong> to be your target — ideally a
+                In Canvas, create or locate a <strong>blank course</strong> to be your target, ideally a
                 sandbox or empty test course with no existing content.
               </li>
               <li>
@@ -254,12 +254,12 @@ export function GuidesPage({
                 backup and reference.
               </li>
               <li>
-                In RocketCourse, build the additions or improvements you want — for example new pages,
-                quizzes, assignments, a refreshed syllabus, or updated grading — using the builder tabs.
+                In RocketCourse, build the additions or improvements you want, for example new pages,
+                quizzes, assignments, a refreshed syllabus, or updated grading, using the builder tabs.
               </li>
               <li>
                 Export your RocketCourse additions (a full <strong>.imscc</strong>, or a narrower export
-                such as a single quiz or a syllabus PDF — see the other guides).
+                such as a single quiz or a syllabus PDF, see the other guides).
               </li>
               <li>
                 Import the RocketCourse export into a <strong>blank or sandbox Canvas course</strong> first
@@ -283,7 +283,7 @@ export function GuidesPage({
             <ol>
               <li>Log into Canvas.</li>
               <li>
-                Open the <strong>target course</strong> — ideally a blank or sandbox course for your first
+                Open the <strong>target course</strong>, ideally a blank or sandbox course for your first
                 import.
               </li>
               <li>
@@ -307,7 +307,7 @@ export function GuidesPage({
               </li>
               <li>
                 After import, review the <strong>modules, pages, assignments, quizzes, gradebook, and
-                files</strong> — plus dates, links, and grading — before publishing.
+                files</strong>, plus dates, links, and grading, before publishing.
               </li>
             </ol>
             <p className="guide-warning">
@@ -358,14 +358,14 @@ export function GuidesPage({
         <details className="guide-detail">
           <summary>5. I want printable quizzes.</summary>
           <div className="guide-steps">
-            <p>Generate paper-friendly PDFs for a quiz — one for students and a separate answer key.</p>
+            <p>Generate paper-friendly PDFs for a quiz, one for students and a separate answer key.</p>
             <ol>
               <li>
                 In RocketCourse, open the <strong>Quizzes</strong> tab and select the quiz you want to
                 print.
               </li>
               <li>
-                Export the <strong>student quiz PDF</strong> — the clean version with questions and answer
+                Export the <strong>student quiz PDF</strong>, the clean version with questions and answer
                 space but no answers marked.
               </li>
               <li>
@@ -376,7 +376,7 @@ export function GuidesPage({
             </ol>
             <p className="guide-warning">
               <AlertTriangle size={15} /> <strong>Keep the key private.</strong> The answer-key PDF is a
-              separate file on purpose — do not hand it out or post it where students can reach it.
+              separate file on purpose, do not hand it out or post it where students can reach it.
             </p>
           </div>
         </details>
@@ -398,7 +398,7 @@ export function GuidesPage({
               <CheckCircle2 size={15} /> <strong>How it relates to Canvas.</strong> The syllabus PDF is a
               static, printable document. It is generated from the same syllabus content RocketCourse uses
               for the Canvas <strong>Syllabus</strong> page when you export a full course package, but the
-              PDF itself is standalone — editing it does not change your Canvas syllabus, and vice versa.
+              PDF itself is standalone, editing it does not change your Canvas syllabus, and vice versa.
             </p>
           </div>
         </details>
@@ -410,7 +410,7 @@ export function GuidesPage({
             <ol>
               <li>
                 In RocketCourse, identify exactly what is <strong>new or changed</strong> since your last
-                export — for example a few new pages, one new quiz, or an updated assignment.
+                export, for example a few new pages, one new quiz, or an updated assignment.
               </li>
               <li>
                 Export only those items (a narrower export such as a single quiz, or a package containing
@@ -426,8 +426,8 @@ export function GuidesPage({
               </li>
             </ol>
             <p className="guide-warning">
-              <AlertTriangle size={15} /> <strong>Duplicate risk.</strong> Canvas does not merge by default
-              — re-importing content that already exists typically creates a second copy. If you are unsure,
+              <AlertTriangle size={15} /> <strong>Duplicate risk.</strong> Canvas does not merge by default.
+              Re-importing content that already exists typically creates a second copy. If you are unsure,
               import into a blank or sandbox course first to see exactly what the partial export contains
               before touching a course with existing work.
             </p>
@@ -453,12 +453,12 @@ export function GuidesPage({
                 Use the Canvas <strong>Reset Course Content</strong> action and confirm when prompted.
               </li>
               <li>
-                After the reset, the course is empty — you can then import a fresh RocketCourse{" "}
+                After the reset, the course is empty, you can then import a fresh RocketCourse{" "}
                 <strong>.imscc</strong> package into it cleanly.
               </li>
             </ol>
             <p className="guide-warning">
-              <AlertTriangle size={15} /> <strong>Destructive — this deletes course content.</strong>{" "}
+              <AlertTriangle size={15} /> <strong>Destructive, this deletes course content.</strong>{" "}
               Resetting a Canvas course removes its existing content. <strong>Never reset a course that
               contains work you need to keep</strong> (student data, graded work, or anything you have not
               backed up). When in doubt, export the course first and only reset sandbox or test courses.
@@ -490,7 +490,7 @@ export function GuidesPage({
               Importing into a course that already has content can create <strong>duplicates</strong>.
             </li>
             <li>
-              Resetting a Canvas course <strong>deletes course content</strong> — only reset courses you can
+              Resetting a Canvas course <strong>deletes course content</strong>, only reset courses you can
               safely wipe.
             </li>
             <li>
@@ -507,7 +507,7 @@ export function GuidesPage({
       {/* Final CTA */}
       <section className="landing-cta">
         <h2>
-          Ready to <span className="gradient-text">build</span>?
+          Ready to <span className="accent-text">build</span>?
         </h2>
         <p>
           Explore the demo to see what a finished RocketCourse package looks like, or start building your

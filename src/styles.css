@@ -30,7 +30,7 @@
   --ink: #eef2ff;
   --ink-dim: #c4ccf2;
   --muted: #98a3d6;
-  --subtle: #6f7aae;
+  --subtle: #828cc4;
   --on-accent: #05071a;
 
   /* --- Neon accents --- */
@@ -236,12 +236,10 @@ p {
   line-height: 1.62;
 }
 
-.gradient-text {
-  background: var(--grad-text);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
-  color: transparent;
+/* Single-phrase headline emphasis. Solid brand accent (cyan), not gradient text:
+   emphasis is carried by one consistent signal color, the way links/focus/active are. */
+.accent-text {
+  color: var(--accent);
 }
 
 /* ============================================================
@@ -283,8 +281,14 @@ p {
   box-shadow: 0 20px 48px rgba(106, 91, 255, 0.5), 0 10px 26px rgba(255, 46, 166, 0.36);
 }
 
-.primary:active:not(:disabled) {
-  transform: translateY(0);
+/* Press feedback: buttons scale down slightly on press so the UI feels like it
+   heard the click. Snappier than the hover transition (120ms vs 200ms). */
+.primary:active:not(:disabled),
+.secondary:active:not(:disabled),
+.ghost:active:not(:disabled),
+.danger:active:not(:disabled) {
+  transform: scale(0.97);
+  transition-duration: var(--dur-fast);
 }
 
 .secondary {
@@ -552,7 +556,8 @@ p {
 }
 
 .landing-copy h1 {
-  max-width: 14ch;
+  max-width: 26ch;
+  text-wrap: balance;
 }
 
 .landing-copy p {
@@ -8804,10 +8809,7 @@ p {
 .pricing-price strong {
   font-size: 1.9rem;
   line-height: 1;
-  background: var(--grad-text);
-  -webkit-background-clip: text;
-  background-clip: text;
-  -webkit-text-fill-color: transparent;
+  color: var(--ink);
 }
 .pricing-price small {
   color: var(--muted);
@@ -9864,7 +9866,7 @@ p {
   list-style: none;
   margin: 12px 0 0;
   padding: 12px 14px;
-  border-left: 3px solid rgba(34, 230, 255, 0.4);
+  border: 1px solid rgba(34, 230, 255, 0.35);
   background: rgba(34, 230, 255, 0.05);
   border-radius: 8px;
   display: flex;
@@ -10290,6 +10292,48 @@ p {
   .quiz-layout,
   .rubric-layout {
     grid-template-columns: 1fr;
+  }
+}
+
+/* ============================================================
+   Tabular figures for data displays.
+   Numbers in the command-center stat tiles, metric grids, and
+   gradebook/contact-hours readouts align in columns and don't
+   jitter as values change (e.g. 100% -> 96%, 826 -> 1,204).
+   ============================================================ */
+.overview-metric-grid,
+.assignment-metric-grid,
+.discussion-metric-grid,
+.quiz-metric-grid,
+.rubric-metric-grid,
+.module-metric-grid,
+.gradebook-metric,
+.contact-cat-hours,
+.stat-panel,
+.ws-stat,
+.sa-stat {
+  font-variant-numeric: tabular-nums;
+}
+
+/* Lighter, more refined icon stroke across the lucide set (default is 2).
+   CSS overrides the SVG stroke-width attribute, so this re-weights every icon
+   at once without swapping libraries. */
+.lucide {
+  stroke-width: 1.75px;
+}
+
+/* Touch devices fire :hover on tap and leave it "stuck". Drop the hover-lift
+   transforms there so a tap doesn't leave a button/card floating. The :active
+   press feedback (scale) still fires on tap. */
+@media (hover: none) {
+  .primary:hover:not(:disabled),
+  .secondary:hover:not(:disabled),
+  .ghost:hover:not(:disabled),
+  .danger:hover:not(:disabled),
+  .feature-card:hover,
+  .step-card:hover,
+  .blog-card:hover {
+    transform: none;
   }
 }
 

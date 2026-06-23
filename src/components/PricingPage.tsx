@@ -41,7 +41,7 @@ export function PricingPage({
             <Sparkles size={14} /> Pricing
           </span>
           <h1>
-            Plans for instructors, designers, and <span className="gradient-text">whole departments</span>
+            Plans for instructors, designers, and <span className="accent-text">whole departments</span>
           </h1>
           <p>
             RocketCourse is a Canvas-first AI course builder. Start free with a static sample, then pick a plan to
@@ -50,7 +50,7 @@ export function PricingPage({
         </div>
       </section>
 
-      {/* Free preview banner — public, no AI, no account */}
+      {/* Free preview banner, public, no AI, no account */}
       {free && (
         <section className="pricing-free-banner">
           <div>
@@ -148,7 +148,7 @@ export function PricingPage({
       <p className="pricing-note">
         Prices shown in USD. Paid plans unlock AI course generation and private Canvas exports; the free preview is a
         static sample with no AI. Export limits and AI generation limits are enforced on the server against your
-        subscription — never the browser.
+        subscription, never the browser.
       </p>
     </main>
   );

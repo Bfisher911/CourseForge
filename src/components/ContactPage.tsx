@@ -12,7 +12,7 @@ import {
 
 // Public contact page for RocketCourse. Self-contained: holds its own form state, validates
 // client-side, and POSTs to the `/.netlify/functions/contact` serverless endpoint. The page is
-// resilient — if the network request fails (offline, cold function, non-2xx) it never shows a hard
+// resilient, if the network request fails (offline, cold function, non-2xx) it never shows a hard
 // dead end. It falls back to a prefilled `mailto:` so the visitor can always reach the team.
 //
 // Email routing: inquiries go to rocketproofai@gmail.com. That inbox also receives Rocketproof
@@ -22,7 +22,7 @@ import {
 const CONTACT_ENDPOINT = "/.netlify/functions/contact";
 const CONTACT_EMAIL = "rocketproofai@gmail.com";
 const SUBJECT_PREFIX = "[RocketCourse Inquiry]";
-// Ignore submits fired within this window of the previous attempt (ms) — guards against
+// Ignore submits fired within this window of the previous attempt (ms), guards against
 // double-clicks and rapid re-submits.
 const SUBMIT_COOLDOWN_MS = 3000;
 // How long the submit button stays disabled after a successful send (ms).
@@ -77,7 +77,7 @@ function validate(name: string, email: string, message: string): FieldErrors {
   if (!message.trim()) {
     errors.message = "Please add a short message.";
   } else if (message.trim().length < 10) {
-    errors.message = "A little more detail helps — at least 10 characters.";
+    errors.message = "A little more detail helps, at least 10 characters.";
   }
   return errors;
 }
@@ -143,7 +143,7 @@ export function ContactPage() {
     if (now - lastSubmitAt < SUBMIT_COOLDOWN_MS) return;
     setLastSubmitAt(now);
 
-    // Honeypot tripped: a bot filled the hidden field. Pretend success and drop it silently —
+    // Honeypot tripped: a bot filled the hidden field. Pretend success and drop it silently,
     // never actually send.
     if (website.trim()) {
       setStatus("success");
@@ -196,7 +196,7 @@ export function ContactPage() {
             <Mail size={14} /> Contact
           </span>
           <h1>
-            Let&apos;s talk about your <span className="gradient-text">courses</span>
+            Let&apos;s talk about your <span className="accent-text">courses</span>
           </h1>
           <p>
             Questions about RocketCourse, or ready to bring it to your classroom? Pilots, department
@@ -213,7 +213,7 @@ export function ContactPage() {
             <div>
               <h2>Message sent</h2>
               <p>
-                Thanks — your message is on its way. We&apos;ll reply from the RocketCourse team.
+                Thanks, your message is on its way. We&apos;ll reply from the RocketCourse team.
               </p>
             </div>
           </div>
@@ -290,7 +290,7 @@ export function ContactPage() {
                   type="text"
                   value={institution}
                   autoComplete="organization"
-                  placeholder="Optional — e.g. State University"
+                  placeholder="Optional, e.g. State University"
                   onChange={(event) => setInstitution(event.target.value)}
                 />
               </label>

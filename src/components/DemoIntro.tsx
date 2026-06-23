@@ -11,7 +11,7 @@ import {
   Sparkles
 } from "lucide-react";
 
-// Public demo intro — the gate before the pre-populated "AI and Modern Society" sample editor.
+// Public demo intro, the gate before the pre-populated "AI and Modern Society" sample editor.
 // It sets expectations (what the demo is / is not), then lets the visitor take the guided tour or
 // explore on their own. No AI credits are used; the sample is static.
 
@@ -22,9 +22,9 @@ const DEMO_IS = [
 ];
 
 const DEMO_IS_NOT = [
-  "Not connected to live AI — exploring the demo uses no AI credits and saves nothing to an account.",
-  "Not a finished course — like any RocketCourse output, it is a strong first draft for human review.",
-  "Not meant for a live Canvas course — import the sample only into a blank or sandbox Canvas course."
+  "Not connected to live AI. Exploring the demo uses no AI credits and saves nothing to an account.",
+  "Not a finished course. Like any RocketCourse output, it is a strong first draft for human review.",
+  "Not meant for a live Canvas course. Import the sample only into a blank or sandbox Canvas course."
 ];
 
 export function DemoIntro({
@@ -44,12 +44,12 @@ export function DemoIntro({
             <Sparkles size={14} /> Live demo
           </span>
           <h1 id="demo-intro-heading">
-            Explore a prebuilt <span className="gradient-text">RocketCourse</span> demo
+            Explore a prebuilt <span className="accent-text">RocketCourse</span> demo
           </h1>
           <p>
             This sample uses a pre-populated <strong>AI and Modern Society</strong> course so you can see exactly how
-            RocketCourse structures a Canvas course — homepage, syllabus, modules, pages, assignments, discussions,
-            quizzes, rubrics, gradebook groups, and the export package — before you build your own.
+            RocketCourse structures a Canvas course, homepage, syllabus, modules, pages, assignments, discussions,
+            quizzes, rubrics, gradebook groups, and the export package, before you build your own.
           </p>
         </div>
       </section>
@@ -91,14 +91,14 @@ export function DemoIntro({
               <PlayCircle size={18} />
             </span>
             <h3>Take the guided tour</h3>
-            <p>A short, optional walkthrough points out every tab — from the homepage to the export package — and where to download the sample files.</p>
+            <p>A short, optional walkthrough points out every tab, from the homepage to the export package, and where to download the sample files.</p>
           </article>
           <article className="step-card">
             <span className="step-index">
               <BookOpen size={18} />
             </span>
             <h3>Explore on your own</h3>
-            <p>Jump straight into the editor and click around. Make safe edits in this temporary session — nothing is saved to an account.</p>
+            <p>Jump straight into the editor and click around. Make safe edits in this temporary session, nothing is saved to an account.</p>
           </article>
           <article className="step-card">
             <span className="step-index">
@@ -114,7 +114,7 @@ export function DemoIntro({
         <ShieldAlert size={18} />
         <p>
           Import the sample <strong>only into a blank Canvas course</strong> for testing. Do not import it into a live
-          course with existing content unless you understand the consequences — importing into a course that already has
+          course with existing content unless you understand the consequences, importing into a course that already has
           content can create duplicates.
         </p>
       </section>

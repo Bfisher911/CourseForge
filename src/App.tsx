@@ -1165,12 +1165,11 @@ function Landing({
             <Sparkles size={15} /> Canvas-first course builder for instructors & designers
           </span>
           <h1>
-            Turn a course idea into an editable <span className="gradient-text">Canvas course</span>.
+            Turn a course idea into an editable <span className="accent-text">Canvas course</span>.
           </h1>
           <p>
-            RocketCourse turns a topic, syllabus, notes, readings, or an existing Canvas export into a structured,
-            editable course shell — homepage, syllabus, modules, pages, assignments, discussions, quizzes, rubrics, and
-            gradebook groups — then locally validates and exports a Canvas-oriented <strong>.imscc</strong> package.
+            Turn a topic, syllabus, or existing Canvas export into a structured, fully editable course, then export a
+            Canvas-oriented <strong>.imscc</strong> package.
           </p>
           <div className="hero-actions">
             <button className="primary" onClick={onStart}>
@@ -1219,25 +1218,23 @@ function Landing({
       </section>
 
       <section className="landing-section" aria-labelledby="problem-heading">
-        <span className="section-eyebrow">The problem</span>
         <h2 id="problem-heading">The blank Canvas shell is where courses stall</h2>
         <p>
           A new Canvas course opens empty. Before any teaching happens, someone has to build the homepage, write the
           syllabus, lay out modules, draft pages, create assignments and discussions, write quizzes and rubrics, set up
-          gradebook groups, and wire it all together — then copy and paste it into Canvas, piece by piece. That setup
+          gradebook groups, and wire it all together, then copy and paste it into Canvas, piece by piece. That setup
           labor is repetitive, time-consuming, and easy to do inconsistently.
         </p>
         <p>
           RocketCourse removes the blank-shell burden. You start from your own topic, syllabus, readings, or prompt and
-          get a structured first draft you can edit — so you spend your time on teaching, quality, accessibility, and the
+          get a structured first draft you can edit, so you spend your time on teaching, quality, accessibility, and the
           student experience instead of scaffolding.
         </p>
       </section>
 
       <section className="landing-section" aria-labelledby="audience-heading">
-        <span className="section-eyebrow">Who it's for</span>
         <h2 id="audience-heading">Built for everyone who shapes a Canvas course</h2>
-        <p>RocketCourse is for any instructor building any course — and the people who help them do it well.</p>
+        <p>RocketCourse is for any instructor building any course, and the people who help them do it well.</p>
         <div className="feature-grid">
           <article className="feature-card">
             <span className="feature-icon cyan"><User size={22} /></span>
@@ -1263,17 +1260,15 @@ function Landing({
       </section>
 
       <section className="landing-section" aria-labelledby="student-heading">
-        <span className="section-eyebrow">Why it matters</span>
         <h2 id="student-heading">A clearer course for students, a faster start for you</h2>
         <p>
           Consistent navigation, predictable module structure, understandable instructions, and professional-looking
-          pages reduce course confusion — so students spend less energy figuring out where things are and more on
+          pages reduce course confusion, so students spend less energy figuring out where things are and more on
           learning. Designers and technologists get a clean baseline to improve, not a blank page to rescue.
         </p>
       </section>
 
       <section className="landing-section" aria-labelledby="how-heading">
-        <span className="section-eyebrow">How it works</span>
         <h2 id="how-heading">From prompt to Canvas package in three steps</h2>
         <p>A guided, calm flow that keeps you in control of every object before anything is exported.</p>
         <div className="how-grid">
@@ -1289,9 +1284,8 @@ function Landing({
       </section>
 
       <section className="landing-section" aria-labelledby="features-heading">
-        <span className="section-eyebrow">What you get</span>
         <h2 id="features-heading">Everything a Canvas course needs, structured for you</h2>
-        <p>Powerful where it counts, simple everywhere else — no fake AI claims, just a fast, honest build.</p>
+        <p>Powerful where it counts, simple everywhere else. No fake AI claims, just a fast, honest build.</p>
         <div className="feature-grid">
           {landingFeatures.map((feature) => {
             const Icon = feature.icon;
@@ -1309,10 +1303,9 @@ function Landing({
       </section>
 
       <section className="landing-section landing-demo-invite" aria-labelledby="demo-invite-heading">
-        <span className="section-eyebrow">See it in action</span>
         <h2 id="demo-invite-heading">Explore the AI and Modern Society demo</h2>
         <p>
-          Poke around a fully built sample course — every tab, the readiness scoring, and the export flow — with no
+          Poke around a fully built sample course (every tab, the readiness scoring, and the export flow) with no
           sign-in and no AI credits used. It's the fastest way to see how RocketCourse structures a Canvas course before
           you build your own.
         </p>
@@ -1327,12 +1320,11 @@ function Landing({
       </section>
 
       <section className="landing-section" aria-labelledby="pricing-teaser-heading">
-        <span className="section-eyebrow">Pricing</span>
         <h2 id="pricing-teaser-heading">Start free, upgrade when you're ready to build your own</h2>
         <p>
           The demo is free and uses no AI. Paid plans unlock AI course generation and private Canvas exports for
           instructors, designers, and whole departments. Export and AI limits are enforced on the server against your
-          subscription — never the browser.
+          subscription, never the browser.
         </p>
         <div className="hero-actions">
           <button className="primary" onClick={onPricing}>
