@@ -1549,9 +1549,9 @@ p {
 
 .editor-shell {
   display: grid;
-  grid-template-columns: 224px minmax(0, 1fr) 312px;
-  gap: 18px;
-  width: min(1560px, calc(100vw - 36px));
+  grid-template-columns: 224px minmax(0, 1fr) 320px;
+  gap: 20px;
+  width: min(1820px, calc(100vw - 40px));
   margin: 0 auto;
   padding: 22px 0 48px;
   align-items: start;
@@ -10240,3 +10240,56 @@ p {
     grid-template-columns: 1fr;
   }
 }
+
+/* ============================================================
+   Editor declutter. The per-tab builders previously used a 3-column
+   list | editor | preview grid that crammed into the width-capped editor-main
+   (~988px) — overlapping toolbar buttons and squeezing the Canvas preview to an
+   unreadable strip. Default to a roomy 2-column (list | editor) with the Canvas
+   preview FULL-WIDTH BELOW at every width; single column on small screens.
+   Placed last so it wins over the older width-keyed rules.
+   ============================================================ */
+.page-layout,
+.assignment-layout,
+.discussion-layout,
+.quiz-layout,
+.rubric-layout {
+  grid-template-columns: minmax(240px, 0.82fr) minmax(0, 1.18fr);
+  align-items: start;
+}
+.page-preview-panel,
+.assignment-preview-panel,
+.discussion-preview-panel,
+.quiz-preview-panel,
+.rubric-preview-panel {
+  grid-column: 1 / -1;
+}
+.page-preview-sticky,
+.assignment-preview-sticky,
+.discussion-preview-sticky,
+.quiz-preview-sticky,
+.rubric-preview-sticky {
+  position: static;
+}
+/* Long titles in the phone/desktop Canvas preview wrap instead of clipping mid-word. */
+.canvas-preview,
+.page-canvas-preview,
+.assignment-canvas-preview,
+.discussion-canvas-preview,
+.quiz-canvas-preview,
+.rubric-canvas-preview,
+.canvas-preview h1,
+.canvas-preview h2 {
+  overflow-wrap: break-word;
+  word-break: normal;
+}
+@media (max-width: 1080px) {
+  .page-layout,
+  .assignment-layout,
+  .discussion-layout,
+  .quiz-layout,
+  .rubric-layout {
+    grid-template-columns: 1fr;
+  }
+}
+

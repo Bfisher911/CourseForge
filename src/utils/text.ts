@@ -59,8 +59,32 @@ export const escapeXml = (value: string | number | undefined | null): string =>
     .replace(/"/g, "&quot;")
     .replace(/'/g, "&apos;");
 
+// Common named entities that show up in generated/pasted content. Decoded to their characters so
+// downstream consumers (PDF ASCII-folding, Canvas re-escaping) render readable text instead of the
+// literal "&rarr;". &amp; is decoded LAST so we never double-decode.
+const NAMED_ENTITIES: Record<string, string> = {
+  "&rarr;": "→",
+  "&larr;": "←",
+  "&harr;": "↔",
+  "&mdash;": "—",
+  "&ndash;": "–",
+  "&hellip;": "…",
+  "&ldquo;": "“",
+  "&rdquo;": "”",
+  "&lsquo;": "‘",
+  "&rsquo;": "’",
+  "&bull;": "•",
+  "&middot;": "·",
+  "&times;": "×",
+  "&deg;": "°",
+  "&copy;": "©",
+  "&reg;": "®",
+  "&trade;": "™"
+};
+
 export const decodeHtmlEntities = (value: string): string =>
   value
+    .replace(/&(rarr|larr|harr|mdash|ndash|hellip|ldquo|rdquo|lsquo|rsquo|bull|middot|times|deg|copy|reg|trade);/g, (m) => NAMED_ENTITIES[m] ?? m)
     .replace(/&#x([0-9a-fA-F]+);/g, (_, hex: string) => String.fromCodePoint(parseInt(hex, 16)))
     .replace(/&#(\d+);/g, (_, dec: string) => String.fromCodePoint(Number(dec)))
     .replace(/&nbsp;/g, " ")
