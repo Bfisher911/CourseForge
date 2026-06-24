@@ -47,9 +47,9 @@ describe("plans catalog", () => {
     for (const key of required) expect(planByKey[key]).toBeDefined();
   });
 
-  it("prices the semester pass at $79 one-time granting 4 months", () => {
+  it("prices the semester pass at $59 one-time granting 4 months", () => {
     const semester = getPlan("individual_semester");
-    expect(semester.priceCents).toBe(7900);
+    expect(semester.priceCents).toBe(5900);
     expect(semester.billingInterval).toBe("one_time");
     expect(semester.checkoutMode).toBe("payment");
     expect(semester.entitlementMonths).toBe(4);
@@ -57,9 +57,9 @@ describe("plans catalog", () => {
 
   it("formats prices for each billing interval", () => {
     expect(formatPlanPrice(getPlan("free_preview"))).toBe("Free");
-    expect(formatPlanPrice(getPlan("monthly_instructor"))).toBe("$29/mo");
-    expect(formatPlanPrice(getPlan("individual_annual"))).toBe("$199/yr");
-    expect(formatPlanPrice(getPlan("individual_semester"))).toBe("$79");
+    expect(formatPlanPrice(getPlan("monthly_instructor"))).toBe("$15/mo");
+    expect(formatPlanPrice(getPlan("individual_annual"))).toBe("$129/yr");
+    expect(formatPlanPrice(getPlan("individual_semester"))).toBe("$59");
     expect(formatPlanPrice(getPlan("institution"))).toBe("Contact sales");
   });
 
