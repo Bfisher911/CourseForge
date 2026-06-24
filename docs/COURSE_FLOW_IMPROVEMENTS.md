@@ -68,9 +68,34 @@ pass: 437 tests green. After this pass: **469 tests green, typecheck clean, buil
   yet show the new theming — `courseGenerator.ts` is the main remaining visual surface and the
   highest-leverage place to apply the renderer kit + themed headings next.
 
+### 6. Themed, richer PDF exports (Goal 8)
+- `src/services/pdfDoc.ts`: `PdfDoc` was hard-coded to a fixed print palette. Added `hexToRgb` +
+  a `.theme(accentHex, accentDarkHex)` method so headings, the title rule, and bullet markers pick up
+  the course theme; bullets carry a per-line `bulletColor`. Wired `.theme(course.theme.accent,
+  course.theme.accentDark)` into `syllabusPdf.ts`, `coursePdf.ts`, and all four `quizPdf.ts`
+  exporters — so a downloaded PDF now matches the course's Canvas pages.
+- `syllabusPdf.ts` also gained a **Course at a Glance** block (level, modality, credit hours, length,
+  modules, instructor + term placeholders) and a **Grade Breakdown** from the assignment groups.
+- 6 tests in `pdfDoc.theme.test.ts`; existing PDF structure/ASCII tests still pass.
+
+### Finding: the generated Canvas HTML and content were already mature
+- Browser + code inspection showed `courseGenerator.ts` **already** renders richly themed Canvas HTML
+  (themed section cards, accent-colored headings, callouts, typed notes via the `themeDesign.ts`
+  kit), and the demo course is substantial (15 modules / 78 pages). So Goals 6–7 ("look more
+  polished/themed") and Goal 9 ("richer content") were largely **already met** by the existing
+  system — the concrete gap was the un-themed PDFs (now fixed). The remaining opportunities below are
+  polish, not foundational gaps.
+
 ## Remaining (recommended next steps, with file pointers)
 
-These are larger content/visual efforts; deferred so they can be done well rather than rushed.
+These are polish efforts; deferred so they can be done well rather than rushed.
+
+- **Writing-style guardrails (Goal 9 polish).** Audit the deterministic templates + prompt files
+  (`src/services/courseGenerator.ts`, `src/ai/promptTemplates/*`) against the style rules (avoid em
+  dashes, "not X but Y", over-using rule-of-three). A scripted check + targeted edits, low risk.
+- **Wider use of the new specialized cards.** Optionally swap some `buildThemedCard` sections in the
+  generators for `buildAssignmentCard`/`buildDiscussionCard`/`buildQuizCard` (more structured), each
+  with the matching pinned-HTML test assertion relaxed.
 
 - **Finish wiring the renderer kit (Goals 6, 7).** The specialized cards above are built + tested but
   not yet wired into every generator. Next: use `buildAssignmentCard`/`buildDiscussionCard`/

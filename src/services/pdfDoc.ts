@@ -33,6 +33,8 @@ export interface PdfLine {
   center?: boolean;
   /** Draw a square marker before the text and hang-indent wrapped continuation. */
   bullet?: boolean;
+  /** Color for the drawn bullet marker (defaults to the accent). */
+  bulletColor?: Rgb;
   /** Render a horizontal rule at this position (text ignored). */
   rule?: boolean;
   ruleColor?: Rgb;
@@ -61,6 +63,14 @@ const HEADING: Rgb = [0.16, 0.2, 0.46];
 const MUTED: Rgb = [0.42, 0.46, 0.56];
 const RULE: Rgb = [0.82, 0.84, 0.9];
 const ACCENT: Rgb = [0.13, 0.45, 0.78];
+
+/** Parse a #rgb / #rrggbb hex color into a 0–1 Rgb triple, or null if unparseable. */
+export const hexToRgb = (hex: string): Rgb | null => {
+  const value = String(hex || "").trim().replace(/^#/, "");
+  const full = value.length === 3 ? value.split("").map((c) => c + c).join("") : value;
+  if (!/^[0-9a-fA-F]{6}$/.test(full)) return null;
+  return [parseInt(full.slice(0, 2), 16) / 255, parseInt(full.slice(2, 4), 16) / 255, parseInt(full.slice(4, 6), 16) / 255];
+};
 
 const pdfAsciiSafe = (value: string): string =>
   value
@@ -139,7 +149,7 @@ export const createMultiPagePdf = (lines: PdfLine[], options: PdfOptions = {}): 
 
     let x = baseX;
     if (line.bullet) {
-      parts.push(`${rgb(ACCENT)} rg ${baseX} ${py + 2} 3 3 re f`);
+      parts.push(`${rgb(line.bulletColor ?? ACCENT)} rg ${baseX} ${py + 2} 3 3 re f`);
       x = baseX + 12;
     }
     if (line.center) {
@@ -205,6 +215,19 @@ export const pdfBlobFrom = (pdf: string): Blob => new Blob([pdf], { type: "appli
 export class PdfDoc {
   private lines: PdfLine[] = [];
   private footer?: string;
+  // Per-document palette: defaults to the brand print colors; theme() overrides with the course theme
+  // so an exported PDF matches the course's Canvas pages (headings + rules + bullets pick up the accent).
+  private headingColor: Rgb = HEADING;
+  private accentColor: Rgb = ACCENT;
+
+  /** Carry the course theme into the PDF: heading = accentDark, rules/bullets = accent. */
+  theme(accentHex: string, accentDarkHex?: string): this {
+    const accent = hexToRgb(accentHex);
+    const heading = accentDarkHex ? hexToRgb(accentDarkHex) : null;
+    if (accent) this.accentColor = accent;
+    this.headingColor = heading ?? accent ?? this.headingColor;
+    return this;
+  }
 
   /** Set a running footer (course/quiz name); a page counter is appended automatically. */
   setFooter(text: string): this {
@@ -215,8 +238,8 @@ export class PdfDoc {
   /** Centered, bold document title with an accent rule beneath it. */
   title(text: string): this {
     this.lines.push({ text: "", size: 8 });
-    wrap(text, 24).forEach((part) => this.lines.push({ text: part, size: 24, bold: true, color: HEADING, center: true }));
-    this.lines.push({ text: "", size: 4, rule: true, ruleColor: ACCENT, spaceAfter: 4 });
+    wrap(text, 24).forEach((part) => this.lines.push({ text: part, size: 24, bold: true, color: this.headingColor, center: true }));
+    this.lines.push({ text: "", size: 4, rule: true, ruleColor: this.accentColor, spaceAfter: 4 });
     return this;
   }
 
@@ -229,7 +252,7 @@ export class PdfDoc {
   /** Section heading: bold, brand color, with a light rule beneath. */
   heading(text: string, size = 15): this {
     this.lines.push({ text: "", size: 8 });
-    wrap(text, size).forEach((part) => this.lines.push({ text: part, size, bold: true, color: HEADING }));
+    wrap(text, size).forEach((part) => this.lines.push({ text: part, size, bold: true, color: this.headingColor }));
     this.lines.push({ text: "", size: 2, rule: true, ruleColor: RULE, spaceAfter: 4 });
     return this;
   }
@@ -290,7 +313,9 @@ export class PdfDoc {
       .trim();
     const parts = wrap(clean, size, CONTENT_W - 12);
     parts.forEach((part, index) => {
-      this.lines.push(index === 0 ? { text: part, size, color: INK, bullet: true } : { text: part, size, color: INK, indent: 12 });
+      this.lines.push(
+        index === 0 ? { text: part, size, color: INK, bullet: true, bulletColor: this.accentColor } : { text: part, size, color: INK, indent: 12 }
+      );
     });
     return this;
   }

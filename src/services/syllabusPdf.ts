@@ -16,14 +16,37 @@ export const findSyllabusPage = (course: CourseProject): CoursePage | undefined 
   course.pages.find((page) => /syllabus/i.test(page.title));
 
 export const buildSyllabusPdfBlob = (course: CourseProject): Blob => {
-  const doc = new PdfDoc();
+  const doc = new PdfDoc().theme(course.theme.accent, course.theme.accentDark);
   doc.setFooter(`${course.title || "Course"} - Syllabus`);
   const syllabus = findSyllabusPage(course);
+  const settings = course.settings;
+  const schedule = settings.schedule;
 
   doc.title(course.title || "Course Syllabus");
   doc.subtitle("Course Syllabus");
   if (course.description) doc.para(course.description);
-  doc.spacer(6);
+  doc.spacer(4);
+
+  // Course-at-a-glance: the key facts a student scans first, in the course theme color.
+  doc.heading("Course at a Glance", 14);
+  if (settings.level) doc.keyValue("Level:", settings.level);
+  if (settings.modality) doc.keyValue("Modality:", settings.modality);
+  if (settings.creditHours) doc.keyValue("Credit hours:", String(settings.creditHours));
+  doc.keyValue("Length:", `${settings.lengthWeeks} weeks`);
+  doc.keyValue("Modules:", String(course.modules.filter((module) => module.kind === "content").length));
+  doc.keyValue("Instructor:", "[Add instructor name and contact]");
+  doc.keyValue(
+    "Term:",
+    schedule.termStartDate ? `${schedule.termStartDate}${schedule.termEndDate ? ` to ${schedule.termEndDate}` : ""}` : "[Add term dates]"
+  );
+  doc.spacer(4);
+
+  // Grade breakdown from the assignment groups (mirrors the Canvas gradebook weighting).
+  if (course.assignmentGroups.length) {
+    doc.heading("Grade Breakdown", 14);
+    course.assignmentGroups.forEach((group) => doc.keyValue(`${group.name}:`, `${group.weight}% of the final grade`));
+    doc.spacer(4);
+  }
 
   if (syllabus) {
     // Render the real syllabus page structure (it already includes outcomes, schedule, policies).

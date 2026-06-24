@@ -57,14 +57,14 @@ const renderStudentQuiz = (doc: PdfDoc, course: CourseProject, quiz: Quiz): void
 };
 
 export const buildQuizStudentPdfBlob = (course: CourseProject, quiz: Quiz): Blob => {
-  const doc = new PdfDoc();
+  const doc = new PdfDoc().theme(course.theme.accent, course.theme.accentDark);
   doc.title("Quiz");
   renderStudentQuiz(doc, course, quiz);
   return doc.blob();
 };
 
 export const buildAllQuizzesStudentPdfBlob = (course: CourseProject): Blob => {
-  const doc = new PdfDoc();
+  const doc = new PdfDoc().theme(course.theme.accent, course.theme.accentDark);
   doc.title(`${course.title} — Quizzes (Student Copies)`);
   doc.para("This packet contains the student copy of every quiz in the course. No answers are included.");
   course.quizzes.forEach((quiz, index) => {
@@ -119,7 +119,7 @@ const answerKeyDisclaimer = (doc: PdfDoc): void => {
 };
 
 export const buildQuizAnswerKeyPdfBlob = (course: CourseProject, quiz: Quiz): Blob => {
-  const doc = new PdfDoc();
+  const doc = new PdfDoc().theme(course.theme.accent, course.theme.accentDark);
   doc.title("Answer Key");
   answerKeyDisclaimer(doc);
   renderAnswerKey(doc, course, quiz);
@@ -127,7 +127,7 @@ export const buildQuizAnswerKeyPdfBlob = (course: CourseProject, quiz: Quiz): Bl
 };
 
 export const buildAllQuizzesAnswerKeyPdfBlob = (course: CourseProject): Blob => {
-  const doc = new PdfDoc();
+  const doc = new PdfDoc().theme(course.theme.accent, course.theme.accentDark);
   doc.title(`${course.title} — Combined Answer Key`);
   answerKeyDisclaimer(doc);
   course.quizzes.forEach((quiz, index) => {

@@ -14,7 +14,7 @@ import { PdfDoc } from "./pdfDoc";
 const byId = <T extends { id: string }>(items: T[], id: string): T | undefined => items.find((item) => item.id === id);
 
 const buildDoc = (course: CourseProject): PdfDoc => {
-  const doc = new PdfDoc();
+  const doc = new PdfDoc().theme(course.theme.accent, course.theme.accentDark);
   doc.setFooter(course.title || "RocketCourse course");
 
   // Title page
