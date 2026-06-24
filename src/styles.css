@@ -10475,3 +10475,78 @@ p {
     position: static;
   }
 }
+
+/* ============================================================
+   Tile motion (Emil design-engineering pass)
+   - Press feedback on interactive tiles (tactile, fast)
+   - Punchier ease-out on tile hover transitions
+   - A subtle, reduced-motion-safe staggered entrance for tile grids
+   ============================================================ */
+:root {
+  --ease-tile: cubic-bezier(0.23, 1, 0.32, 1); /* strong ease-out */
+}
+
+/* Interactive (clickable) tiles: stronger hover easing + a real press. */
+.project-row,
+.blog-card,
+.template-card,
+.hp-template-card,
+.integration-card,
+.assignment-list-card,
+.discussion-list-card,
+.quiz-list-card,
+.rubric-list-card,
+.page-list-card {
+  transition: transform var(--dur) var(--ease-tile),
+    box-shadow var(--dur) var(--ease-tile),
+    border-color var(--dur) var(--ease-tile),
+    background var(--dur) var(--ease-tile);
+}
+.project-row:active,
+.blog-card:active,
+.template-card:active,
+.hp-template-card:active,
+.integration-card:active,
+.assignment-list-card:active,
+.discussion-list-card:active,
+.quiz-list-card:active,
+.rubric-list-card:active,
+.page-list-card:active {
+  transform: scale(0.985); /* press: the tile acknowledges the tap */
+  transition-duration: var(--dur-fast);
+}
+
+/* Staggered entrance for tile/card grids. Gated behind no-preference (reduced-motion
+   keeps the static layout); the keyframe sets only the FROM state, so a tile that never
+   animates still lands on its natural, visible style (no blank render). */
+@media (prefers-reduced-motion: no-preference) {
+  :is(
+      .overview-metric-grid,
+      .assignment-metric-grid,
+      .discussion-metric-grid,
+      .quiz-metric-grid,
+      .rubric-metric-grid,
+      .page-metric-grid,
+      .module-metric-grid, .dashboard-grid,
+      .ws-stat-grid,
+      .sa-stat-grid,
+      .feature-grid,
+      .how-grid,
+      .integration-grid,
+      .blog-grid
+    )
+    > * {
+    animation: tile-rise 280ms var(--ease-tile) both;
+  }
+  :is(.overview-metric-grid, .assignment-metric-grid, .discussion-metric-grid, .quiz-metric-grid, .rubric-metric-grid, .page-metric-grid, .module-metric-grid, .dashboard-grid, .ws-stat-grid, .sa-stat-grid, .feature-grid, .how-grid, .integration-grid, .blog-grid) > *:nth-child(2) { animation-delay: 40ms; }
+  :is(.overview-metric-grid, .assignment-metric-grid, .discussion-metric-grid, .quiz-metric-grid, .rubric-metric-grid, .page-metric-grid, .module-metric-grid, .dashboard-grid, .ws-stat-grid, .sa-stat-grid, .feature-grid, .how-grid, .integration-grid, .blog-grid) > *:nth-child(3) { animation-delay: 80ms; }
+  :is(.overview-metric-grid, .assignment-metric-grid, .discussion-metric-grid, .quiz-metric-grid, .rubric-metric-grid, .page-metric-grid, .module-metric-grid, .dashboard-grid, .ws-stat-grid, .sa-stat-grid, .feature-grid, .how-grid, .integration-grid, .blog-grid) > *:nth-child(4) { animation-delay: 120ms; }
+  :is(.overview-metric-grid, .assignment-metric-grid, .discussion-metric-grid, .quiz-metric-grid, .rubric-metric-grid, .page-metric-grid, .module-metric-grid, .dashboard-grid, .ws-stat-grid, .sa-stat-grid, .feature-grid, .how-grid, .integration-grid, .blog-grid) > *:nth-child(5) { animation-delay: 160ms; }
+  :is(.overview-metric-grid, .assignment-metric-grid, .discussion-metric-grid, .quiz-metric-grid, .rubric-metric-grid, .page-metric-grid, .module-metric-grid, .dashboard-grid, .ws-stat-grid, .sa-stat-grid, .feature-grid, .how-grid, .integration-grid, .blog-grid) > *:nth-child(n + 6) { animation-delay: 200ms; }
+}
+@keyframes tile-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
