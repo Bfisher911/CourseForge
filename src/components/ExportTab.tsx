@@ -179,8 +179,8 @@ export function ExportTab({
             caption="ready"
             ariaLabel={`Course readiness ${confidence.courseScore} percent`}
           />
-          <strong>{confidence.localValidation}</strong>
-          <span>Local validation</span>
+          <strong>Course readiness</strong>
+          <span>Validation {confidence.localValidation.toLowerCase()}</span>
         </div>
       </section>
 
