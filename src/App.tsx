@@ -124,6 +124,7 @@ import { buildReadinessReport } from "./services/readiness";
 import { buildScheduleContext, parseDateList, seedDateList } from "./services/scheduleInput";
 import { validateRevisionCandidate } from "./services/revisionGuard";
 import { buildCourseTileSvg, buildThemePreviewHtml, getThemeStyles, validateTheme, type ThemePreviewKind } from "./services/themeDesign";
+import { colorblindSafetyReport } from "./services/accessibility";
 import type {
   CourseModule,
   CoursePage,
@@ -1908,6 +1909,7 @@ function Intake({
               <Toggle label="Outcome level tags" checked={settings.includeBloom} onChange={(value) => onSettingsChange("includeBloom", value)} />
               <Toggle label="Workload/contact hours" checked={settings.includeContactHours} onChange={(value) => onSettingsChange("includeContactHours", value)} />
               <Toggle label="Accessibility emphasis" checked={settings.accessibilityFocus} onChange={(value) => onSettingsChange("accessibilityFocus", value)} />
+              <Toggle label="AAA contrast" checked={settings.accessibilityTier === "AAA"} onChange={(value) => onSettingsChange("accessibilityTier", value ? "AAA" : "AA")} />
               <Toggle label="Module image hooks" checked={settings.imageSettings.moduleHeaderImages} onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, moduleHeaderImages: value })} />
             </div>
   );
@@ -3008,12 +3010,13 @@ function CustomThemeBuilder({
   const [backgroundColor, setBackgroundColor] = useState("#eef2ff");
   const [textColor, setTextColor] = useState("#0f172a");
   const [logoDataUrl, setLogoDataUrl] = useState<string | undefined>(undefined);
+  const [basePresetId, setBasePresetId] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const input: CustomThemeInput = { name, institutionName: institution, primaryColor, backgroundColor, textColor, logoDataUrl };
-  const preview = useMemo(() => buildThemeFromCustom(input), [name, institution, primaryColor, backgroundColor, textColor, logoDataUrl]);
+  const input: CustomThemeInput = { name, institutionName: institution, primaryColor, backgroundColor, textColor, logoDataUrl, basePresetId: basePresetId || undefined };
+  const preview = useMemo(() => buildThemeFromCustom(input), [name, institution, primaryColor, backgroundColor, textColor, logoDataUrl, basePresetId]);
   const check = useMemo(() => validateTheme(preview), [preview]);
 
   const handleLogo = (file: File | null): void => {
@@ -3059,7 +3062,7 @@ function CustomThemeBuilder({
       <header>
         <div>
           <h2>Create a custom school theme</h2>
-          <p>Match your institution's colors and logo. Apply it now, or save it to your account to reuse and export.</p>
+          <p>Match your institution's colors and logo — optionally co-branded onto any template's look (motif, hero, cards). Apply it now, or save it to your account to reuse and export.</p>
         </div>
         <button className="secondary" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
           <Palette size={16} /> {open ? "Hide builder" : "New custom theme"}
@@ -3071,6 +3074,15 @@ function CustomThemeBuilder({
           <div className="custom-theme-fields">
             <Input label="Theme name" value={name} onChange={setName} />
             <Input label="Institution / program (optional)" value={institution} onChange={setInstitution} />
+            <label className="color-field" style={{ display: "block" }}>
+              <span>Base on a template (optional — applies your brand colors to its look)</span>
+              <select value={basePresetId} onChange={(event) => setBasePresetId(event.target.value)} aria-label="Base template" style={{ width: "100%" }}>
+                <option value="">None — plain brand palette</option>
+                {visualTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>{template.name}</option>
+                ))}
+              </select>
+            </label>
             <div className="custom-color-row">
               <label className="color-field">
                 <span>Primary</span>
@@ -3145,6 +3157,7 @@ function ThemeTab({
   const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
   const libraryThemes = useMemo(() => [...customThemes, ...themes], [customThemes]);
   const validation = useMemo(() => validateTheme(course.theme), [course.theme]);
+  const colorblind = useMemo(() => colorblindSafetyReport(course.theme), [course.theme]);
   const styles = useMemo(() => getThemeStyles(course.theme), [course.theme]);
   const previewHtml = useMemo(() => buildThemePreviewHtml(course.theme, previewKind, course.title), [course.theme, previewKind, course.title]);
   const editedObjects = [
@@ -3190,6 +3203,9 @@ function ThemeTab({
           <div className="theme-summary-meta">
             <span>{course.theme.bannerLabel}</span>
             <span>{validation.score}% contrast score</span>
+            <span title={colorblind.warnings.join(" ") || "Distinctions survive color blindness"}>
+              {colorblind.safe ? "Colorblind-safe" : `${colorblind.warnings.length} colorblind note(s)`}
+            </span>
             <span>{editedObjects} edited object(s) preserved on refresh</span>
           </div>
         </div>

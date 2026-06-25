@@ -41,3 +41,40 @@ describe("buildThemeFromCustom", () => {
     expect(theme.bannerLabel).toBe("Custom theme");
   });
 });
+
+describe("buildThemeFromCustom — brand-kit co-branding", () => {
+  it("inherits a base preset's visual personality but recolors to the brand", () => {
+    const branded = buildThemeFromCustom({
+      name: "Riverside U",
+      primaryColor: "#7a1f2b",
+      backgroundColor: "#fdf2f4",
+      textColor: "#3f0d14",
+      institutionName: "Riverside University",
+      basePresetId: "space-mission-control"
+    });
+    // Brand palette wins.
+    expect(branded.accent).toBe("#7a1f2b");
+    expect(branded.soft).toBe("#fdf2f4");
+    expect(branded.bannerLabel).toBe("Riverside University");
+    // Preset personality is inherited (cosmic motif, rounded font, stage hero, cosmos scene).
+    expect(branded.motif).toBe("cosmic");
+    expect(branded.heroScene).toBe("cosmos");
+    expect(branded.fontFamily).toBe("rounded");
+    expect(branded.heroStyle).toBe("stage");
+    // Name reflects the co-branding.
+    expect(branded.name).toContain("Space Mission Control");
+  });
+
+  it("without a base preset, stays a plain brand theme (default hero/card, no motif)", () => {
+    const plain = buildThemeFromCustom({ name: "Plain", primaryColor: "#1d4ed8", backgroundColor: "#eef2ff", textColor: "#0f172a" });
+    expect(plain.heroStyle).toBe("banner");
+    expect(plain.cardStyle).toBe("accent-bar");
+    expect(plain.motif).toBeUndefined();
+    expect(plain.heroScene).toBeUndefined();
+  });
+
+  it("ignores an unknown base preset id (no crash, plain theme)", () => {
+    const theme = buildThemeFromCustom({ name: "X", primaryColor: "#1d4ed8", backgroundColor: "#fff", textColor: "#000", basePresetId: "does-not-exist" });
+    expect(theme.heroStyle).toBe("banner");
+  });
+});

@@ -6,6 +6,7 @@
 import { getSupabaseClient, supabaseConfig } from "./supabaseClient";
 import { meetsAaNormal } from "../utils/color";
 import { derivePalette } from "./themePalette";
+import { getVisualTemplate } from "../data/visualTemplates";
 import type { Theme } from "../types";
 
 export interface CustomThemeInput {
@@ -16,6 +17,12 @@ export interface CustomThemeInput {
   institutionName?: string;
   /** Optional small logo as a data URL (capped client-side); shown on the preview + stored. */
   logoDataUrl?: string;
+  /**
+   * Brand-kit co-branding: when set, the new theme INHERITS this visual-template preset's personality
+   * (motif, pattern, hero/card style, typography, scene) but is recolored to the brand palette — so a
+   * school can apply its colors to any look instead of starting from a bare swatch.
+   */
+  basePresetId?: string;
 }
 
 export interface SavedCustomTheme {
@@ -40,20 +47,32 @@ const slugify = (value: string): string =>
 export const buildThemeFromCustom = (input: CustomThemeInput): Theme => {
   const accent = input.primaryColor;
   const palette = derivePalette(accent);
+  const base = input.basePresetId ? getVisualTemplate(input.basePresetId)?.theme : undefined;
+  // Co-brand: keep the preset's visual personality, swap only the palette. Without a base, fall back
+  // to a tasteful default hero/card so plain custom themes still look intentional.
+  const personality = base
+    ? {
+        pattern: base.pattern,
+        motif: base.motif,
+        fontFamily: base.fontFamily,
+        heroStyle: base.heroStyle,
+        cardStyle: base.cardStyle,
+        heroScene: base.heroScene
+      }
+    : { heroStyle: "banner" as const, cardStyle: "accent-bar" as const };
+  const trimmedName = input.name.trim() || "Custom theme";
   return {
     id: `custom_${slugify(input.name)}`,
-    name: input.name.trim() || "Custom theme",
+    name: base ? `${trimmedName} · ${base.name}` : trimmedName,
     accent,
     accentDark: palette.accentDark,
     soft: input.backgroundColor,
     contrastText: input.textColor,
     bannerLabel: (input.institutionName || input.name).trim() || "Custom theme",
     contrastStatus: meetsAaNormal(input.textColor, input.backgroundColor) ? "pass" : "review",
-    // Give custom themes a real two-stop hero gradient + a tasteful default hero/card personality.
     gradientFrom: accent,
     gradientTo: palette.shades[2],
-    heroStyle: "banner",
-    cardStyle: "accent-bar"
+    ...personality
   };
 };
 
