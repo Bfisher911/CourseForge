@@ -3010,12 +3010,13 @@ function CustomThemeBuilder({
   const [backgroundColor, setBackgroundColor] = useState("#eef2ff");
   const [textColor, setTextColor] = useState("#0f172a");
   const [logoDataUrl, setLogoDataUrl] = useState<string | undefined>(undefined);
+  const [basePresetId, setBasePresetId] = useState<string>("");
   const [saving, setSaving] = useState(false);
   const [notice, setNotice] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
 
-  const input: CustomThemeInput = { name, institutionName: institution, primaryColor, backgroundColor, textColor, logoDataUrl };
-  const preview = useMemo(() => buildThemeFromCustom(input), [name, institution, primaryColor, backgroundColor, textColor, logoDataUrl]);
+  const input: CustomThemeInput = { name, institutionName: institution, primaryColor, backgroundColor, textColor, logoDataUrl, basePresetId: basePresetId || undefined };
+  const preview = useMemo(() => buildThemeFromCustom(input), [name, institution, primaryColor, backgroundColor, textColor, logoDataUrl, basePresetId]);
   const check = useMemo(() => validateTheme(preview), [preview]);
 
   const handleLogo = (file: File | null): void => {
@@ -3061,7 +3062,7 @@ function CustomThemeBuilder({
       <header>
         <div>
           <h2>Create a custom school theme</h2>
-          <p>Match your institution's colors and logo. Apply it now, or save it to your account to reuse and export.</p>
+          <p>Match your institution's colors and logo — optionally co-branded onto any template's look (motif, hero, cards). Apply it now, or save it to your account to reuse and export.</p>
         </div>
         <button className="secondary" onClick={() => setOpen((value) => !value)} aria-expanded={open}>
           <Palette size={16} /> {open ? "Hide builder" : "New custom theme"}
@@ -3073,6 +3074,15 @@ function CustomThemeBuilder({
           <div className="custom-theme-fields">
             <Input label="Theme name" value={name} onChange={setName} />
             <Input label="Institution / program (optional)" value={institution} onChange={setInstitution} />
+            <label className="color-field" style={{ display: "block" }}>
+              <span>Base on a template (optional — applies your brand colors to its look)</span>
+              <select value={basePresetId} onChange={(event) => setBasePresetId(event.target.value)} aria-label="Base template" style={{ width: "100%" }}>
+                <option value="">None — plain brand palette</option>
+                {visualTemplates.map((template) => (
+                  <option key={template.id} value={template.id}>{template.name}</option>
+                ))}
+              </select>
+            </label>
             <div className="custom-color-row">
               <label className="color-field">
                 <span>Primary</span>
