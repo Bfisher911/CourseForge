@@ -35,6 +35,7 @@ export const defaultSettings: CourseSettings = {
   modulePattern: "standard",
   includeContactHours: true,
   accessibilityFocus: true,
+  accessibilityTier: "AA",
   schedule: {
     enableDueDates: false,
     meetingCadence: "weekly",

@@ -124,6 +124,7 @@ import { buildReadinessReport } from "./services/readiness";
 import { buildScheduleContext, parseDateList, seedDateList } from "./services/scheduleInput";
 import { validateRevisionCandidate } from "./services/revisionGuard";
 import { buildCourseTileSvg, buildThemePreviewHtml, getThemeStyles, validateTheme, type ThemePreviewKind } from "./services/themeDesign";
+import { colorblindSafetyReport } from "./services/accessibility";
 import type {
   CourseModule,
   CoursePage,
@@ -1908,6 +1909,7 @@ function Intake({
               <Toggle label="Outcome level tags" checked={settings.includeBloom} onChange={(value) => onSettingsChange("includeBloom", value)} />
               <Toggle label="Workload/contact hours" checked={settings.includeContactHours} onChange={(value) => onSettingsChange("includeContactHours", value)} />
               <Toggle label="Accessibility emphasis" checked={settings.accessibilityFocus} onChange={(value) => onSettingsChange("accessibilityFocus", value)} />
+              <Toggle label="AAA contrast" checked={settings.accessibilityTier === "AAA"} onChange={(value) => onSettingsChange("accessibilityTier", value ? "AAA" : "AA")} />
               <Toggle label="Module image hooks" checked={settings.imageSettings.moduleHeaderImages} onChange={(value) => onSettingsChange("imageSettings", { ...settings.imageSettings, moduleHeaderImages: value })} />
             </div>
   );
@@ -3145,6 +3147,7 @@ function ThemeTab({
   const [refreshNotice, setRefreshNotice] = useState<string | null>(null);
   const libraryThemes = useMemo(() => [...customThemes, ...themes], [customThemes]);
   const validation = useMemo(() => validateTheme(course.theme), [course.theme]);
+  const colorblind = useMemo(() => colorblindSafetyReport(course.theme), [course.theme]);
   const styles = useMemo(() => getThemeStyles(course.theme), [course.theme]);
   const previewHtml = useMemo(() => buildThemePreviewHtml(course.theme, previewKind, course.title), [course.theme, previewKind, course.title]);
   const editedObjects = [
@@ -3190,6 +3193,9 @@ function ThemeTab({
           <div className="theme-summary-meta">
             <span>{course.theme.bannerLabel}</span>
             <span>{validation.score}% contrast score</span>
+            <span title={colorblind.warnings.join(" ") || "Distinctions survive color blindness"}>
+              {colorblind.safe ? "Colorblind-safe" : `${colorblind.warnings.length} colorblind note(s)`}
+            </span>
             <span>{editedObjects} edited object(s) preserved on refresh</span>
           </div>
         </div>

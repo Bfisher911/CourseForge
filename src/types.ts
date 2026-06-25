@@ -156,6 +156,8 @@ export interface CourseSettings {
   modulePattern: ModulePatternKey;
   includeContactHours: boolean;
   accessibilityFocus: boolean;
+  /** WCAG contrast tier for generated content. "AAA" deepens themed colors to clear 7:1. Default "AA". */
+  accessibilityTier?: "AA" | "AAA";
   schedule: ScheduleSettings;
   imageSettings: CourseImageSettings;
   sourceFiles: SourceFile[];

@@ -43,6 +43,7 @@ import {
 } from "./syllabusTemplates";
 import { buildThemedButton, buildThemedCallout, buildThemedCard, buildThemedNote, buildThemedSecondaryButton, buildThemedShell } from "./themeDesign";
 import { buildBloomPyramid, buildCourseMap, buildGradeWeightDonut } from "./themeDataViz";
+import { applyAccessibilityTier } from "./accessibility";
 import { bestTextOn, withAlpha } from "../utils/color";
 import { validateSyllabus } from "./syllabusValidation";
 import { fileRef, modulesIndexRef, wikiPageRef, WELL_KNOWN_PAGE_IDS } from "./canvasLinks";
@@ -1026,7 +1027,7 @@ export const generateCourseProject = ({ prompt, settings, themeOverride }: Gener
     imageSettings: { ...defaultSettings.imageSettings, ...settings.imageSettings } as CourseImageSettings
   };
   const title = titleFromPrompt(prompt, mergedSettings.title);
-  const theme = themeOverride ?? getTheme(mergedSettings.themeId);
+  const theme = applyAccessibilityTier(themeOverride ?? getTheme(mergedSettings.themeId), mergedSettings.accessibilityTier);
   const moduleCount = Math.max(1, Math.min(18, mergedSettings.moduleCount || mergedSettings.lengthWeeks || 12));
   const finalTitle = finalModuleTitle(mergedSettings);
   const projectId = `course_${slugify(title)}`;
