@@ -11715,6 +11715,17 @@ p {
 .rubric-preview-sticky {
   position: static;
 }
+/* The list column must NOT stay sticky in this layout: the preview panel now spans full width
+   BELOW the list/editor row (grid-column: 1 / -1), so a pinned list floats over the preview as
+   you scroll down to it (the Pages "Canvas preview" overlap). Drop sticky so the list scrolls with
+   the page; its own max-height/overflow still gives a long list an internal scroll. */
+.page-list,
+.assignment-list,
+.discussion-list,
+.quiz-list,
+.rubric-list {
+  position: static;
+}
 /* Long titles in the phone/desktop Canvas preview wrap instead of clipping mid-word. */
 .canvas-preview,
 .page-canvas-preview,
