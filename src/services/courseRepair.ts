@@ -21,6 +21,7 @@
 import type { CourseProject, ModuleItem } from "../types";
 import { nowIso, slugify } from "../utils/text";
 import { rebalanceWeights } from "./gradebookSummary";
+import { normalizeTrueFalseAnswer, reconcileChoiceAnswer } from "./quizBuilder";
 
 export interface RepairResult {
   course: CourseProject;
@@ -234,6 +235,32 @@ export const repairCourse = (input: CourseProject): RepairResult => {
           next = { ...next, type: "short_answer", choices: undefined };
           changed = true;
           questionFixes += 1;
+        } else if (next.type === "multiple_choice" && next.choices) {
+          // Canvas blocks a multiple-choice key that isn't one of the choices. Reconcile it to the
+          // choice it points at (letter/index/text); if nothing matches, downgrade to short answer so
+          // the package stays import-ready instead of shipping a broken auto-graded question.
+          const matched = reconcileChoiceAnswer(next.correctAnswer, next.choices.filter(Boolean));
+          if (matched && matched !== next.correctAnswer) {
+            next = { ...next, correctAnswer: matched };
+            changed = true;
+            questionFixes += 1;
+          } else if (!matched) {
+            next = { ...next, type: "short_answer", choices: undefined };
+            changed = true;
+            questionFixes += 1;
+          }
+        }
+        if (next.type === "true_false") {
+          const tf = normalizeTrueFalseAnswer(next.correctAnswer);
+          if (tf && tf !== next.correctAnswer) {
+            next = { ...next, correctAnswer: tf };
+            changed = true;
+            questionFixes += 1;
+          } else if (!tf) {
+            next = { ...next, type: "short_answer" };
+            changed = true;
+            questionFixes += 1;
+          }
         }
         return next;
       });

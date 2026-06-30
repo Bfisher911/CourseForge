@@ -2,6 +2,43 @@ import type { CourseModule, CourseProject, ModuleItem, ObjectMetadata, Quiz, Qui
 import { nowIso, slugify, stripHtml } from "../utils/text";
 import { unsafeHtmlDetail } from "./htmlSafety";
 
+// Canvas export blocks a multiple-choice question whose correctAnswer isn't EXACTLY one of its
+// choices (see validateQuizPlan below). AI models routinely answer with a letter ("B"), an index,
+// or a lightly reworded choice. These reconcile such an answer to the real choice it points at —
+// used by the AI builder (drop on no match) and by repairCourse (reconcile existing courses).
+const stripChoiceLabel = (value: string): string => value.replace(/^\s*(?:[A-Ha-h]|\d{1,2})\s*[).:\-]\s+/, "").trim();
+const normalizeChoice = (value: string): string =>
+  stripChoiceLabel(value)
+    .toLowerCase()
+    .replace(/[\s.,;:!?'"()[\]]+/g, " ")
+    .trim();
+
+export const reconcileChoiceAnswer = (rawAnswer: string | undefined, choices: string[]): string | null => {
+  const answer = (rawAnswer ?? "").trim();
+  if (!answer || choices.length === 0) return null;
+  const exact = choices.find((choice) => choice === answer);
+  if (exact) return exact;
+  const letter = answer.match(/^([A-Ha-h])\s*[).:]?$/);
+  if (letter) {
+    const idx = letter[1].toUpperCase().charCodeAt(0) - 65;
+    if (choices[idx]) return choices[idx];
+  }
+  const num = answer.match(/^(\d{1,2})\s*[).:]?$/);
+  if (num) {
+    const idx = Number(num[1]) - 1;
+    if (choices[idx]) return choices[idx];
+  }
+  const target = normalizeChoice(answer);
+  return choices.find((choice) => normalizeChoice(choice) === target) ?? null;
+};
+
+export const normalizeTrueFalseAnswer = (rawAnswer: string | undefined): "True" | "False" | null => {
+  const answer = (rawAnswer ?? "").trim().toLowerCase();
+  if (/^(t|true|yes)$/.test(answer)) return "True";
+  if (/^(f|false|no)$/.test(answer)) return "False";
+  return null;
+};
+
 export type QuizTemplateId =
   | "concept-check"
   | "application-scenario"

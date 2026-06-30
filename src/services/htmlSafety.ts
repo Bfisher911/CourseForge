@@ -120,3 +120,12 @@ export const sanitizeHtmlForPreview = (html: string): string =>
     .replace(/(href|src|action|formaction|poster|background)\s*=\s*["']\s*(?:javascript:|vbscript:|data:\s*text\/html)[^"']*["']/gi, '$1="#"')
     .replace(/<(iframe|frame|frameset|object|embed|applet|form|input|button|textarea|select|marquee)\b[\s\S]*?<\/\1>/gi, "")
     .replace(/<(iframe|frame|frameset|object|embed|applet|form|input|button|textarea|select|marquee|link|meta|base)\b[^>]*\/?>/gi, "");
+
+// Make model-authored HTML safe to STORE and EXPORT (not just preview). On top of the Canvas
+// sanitizer it drops placeholder/empty/"#" hrefs, which the .imscc export validator treats as
+// blocking "placeholder or unsafe link" errors. The anchor text stays; only the dead href attribute
+// is removed. Apply to every AI builder that returns HTML so generated content never blocks export.
+export const sanitizeAiHtml = (html: string): string =>
+  sanitizeHtmlForPreview(html)
+    .replace(/\shref\s*=\s*(["'])\s*(?:#[^"']*)?\1/gi, "")
+    .replace(/\shref\s*=\s*(["'])\s*(?:javascript:|vbscript:)[^"']*\1/gi, "");

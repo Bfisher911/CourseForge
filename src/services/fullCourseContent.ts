@@ -245,7 +245,11 @@ export const fillEntireCourseContent = async (
       run: async () => {
         const result = await aiGenerateSyllabusContent(course, syllabusState.content);
         tally(result.source);
-        const content = result.source === "ai" ? result.value : syllabusState.content;
+        // Keep the course-outcome list authoritative: the AI enriches the description/policies, but
+        // the syllabus must still spell out every course outcome (code + text) or readiness flags
+        // "Syllabus outcomes match course outcomes" and the rendered syllabus drifts from the course.
+        const content =
+          result.source === "ai" ? { ...result.value, learningOutcomes: syllabusState.content.learningOutcomes } : syllabusState.content;
         syllabusContent = content;
         syllabusBodyHtml = renderSyllabus(syllabusState.templateId, content, theme);
       }

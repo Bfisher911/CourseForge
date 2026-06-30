@@ -26,10 +26,11 @@ import {
   withFallback,
   type AiResult
 } from "./aiAssist";
+import { sanitizeAiHtml } from "./htmlSafety";
 import { buildAssignmentTemplateHtml } from "./assignmentBuilder";
 import { buildDiscussionTemplateHtml } from "./discussionBuilder";
 import { buildPageTemplateHtml } from "./pageBuilder";
-import { buildQuizQuestionTemplate } from "./quizBuilder";
+import { buildQuizQuestionTemplate, normalizeTrueFalseAnswer, reconcileChoiceAnswer } from "./quizBuilder";
 import { buildRubricFromTemplate } from "./rubricBuilder";
 import { defaultHomepageContent, homepageContextFromCourse } from "./homepageTemplates";
 import { defaultSyllabusContent, syllabusContextFromCourse } from "./syllabusTemplates";
@@ -59,7 +60,7 @@ export const aiGeneratePageBody = (course: CourseProject, page: CoursePage): Pro
       });
       const bodyHtml = toCleanString(json.bodyHtml);
       if (!bodyHtml) throw new Error("AI did not return page HTML.");
-      return bodyHtml;
+      return sanitizeAiHtml(bodyHtml);
     },
     () => buildPageTemplateHtml("lecture-notes", course, page)
   );
@@ -82,7 +83,7 @@ export const aiGenerateAnnouncementBody = (course: CourseProject, announcement: 
       });
       const bodyHtml = toCleanString(json.bodyHtml);
       if (!bodyHtml) throw new Error("AI did not return announcement HTML.");
-      return bodyHtml;
+      return sanitizeAiHtml(bodyHtml);
     },
     () => announcement.bodyHtml
   );
@@ -107,7 +108,7 @@ export const aiGeneratePageProse = (course: CourseProject, page: CoursePage): Pr
       });
       const html = toCleanString(json.html);
       if (!html) throw new Error("AI did not return page prose.");
-      return html;
+      return sanitizeAiHtml(html);
     },
     () => ""
   );
@@ -137,7 +138,7 @@ export const aiGenerateAssignmentDescription = (course: CourseProject, assignmen
       });
       const descriptionHtml = toCleanString(json.descriptionHtml);
       if (!descriptionHtml) throw new Error("AI did not return assignment HTML.");
-      return descriptionHtml;
+      return sanitizeAiHtml(descriptionHtml);
     },
     () => buildAssignmentTemplateHtml("essay-paper", course, assignment)
   );
@@ -164,7 +165,7 @@ export const aiGenerateDiscussionPrompt = (course: CourseProject, discussion: Di
       });
       const promptHtml = toCleanString(json.promptHtml);
       if (!promptHtml) throw new Error("AI did not return discussion HTML.");
-      return promptHtml;
+      return sanitizeAiHtml(promptHtml);
     },
     () => buildDiscussionTemplateHtml("evidence-based", course, discussion)
   );
@@ -182,12 +183,26 @@ const coerceQuestion = (raw: unknown, quiz: Quiz, course: CourseProject, index: 
   const type = QUESTION_TYPES.includes(record.type as QuizQuestionType) ? (record.type as QuizQuestionType) : "multiple_choice";
   const choices = type === "multiple_choice" ? toStringList(record.choices, 6) : [];
   const difficulty: QuizDifficulty = course.settings.quizDifficulty ?? "balanced";
+
+  // Auto-graded types must carry a key the exporter accepts, or Canvas import fails. Reconcile the
+  // AI answer to a real choice / True|False; drop the question if it can't be matched confidently.
+  let correctAnswer = toCleanString(record.correctAnswer);
+  if (type === "multiple_choice") {
+    const matched = reconcileChoiceAnswer(correctAnswer, choices);
+    if (!matched) return null;
+    correctAnswer = matched;
+  } else if (type === "true_false") {
+    const matched = normalizeTrueFalseAnswer(correctAnswer);
+    if (!matched) return null;
+    correctAnswer = matched;
+  }
+
   return {
     id: `${quiz.id}_ai_${Date.now().toString(36)}_${index + 1}`,
     type,
     stem,
     choices: choices.length ? choices : undefined,
-    correctAnswer: toCleanString(record.correctAnswer),
+    correctAnswer,
     feedback: toCleanString(record.feedback),
     correctFeedback: toCleanString(record.correctFeedback),
     incorrectFeedback: toCleanString(record.incorrectFeedback),

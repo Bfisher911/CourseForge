@@ -72,6 +72,31 @@ describe("repairCourse", () => {
     expect(course.quizzes.find((q) => q.id === quiz.id)!.questions[0].type).toBe("short_answer");
   });
 
+  it("reconciles a multiple-choice key that points at a choice by letter/text (the AI-quiz export blocker)", () => {
+    const c = clone(sampleProject);
+    const quiz = c.quizzes.find((q) => q.questions.length > 0)!;
+    const q = quiz.questions[0];
+    q.type = "multiple_choice";
+    q.choices = ["Reverse colonization", "Industrialization", "Romanticism", "Realism"];
+    q.correctAnswer = "A"; // model answered with a letter, not the exact choice text
+    const { course } = repairCourse(c);
+    const fixed = course.quizzes.find((qz) => qz.id === quiz.id)!.questions[0];
+    expect(fixed.type).toBe("multiple_choice");
+    expect(fixed.choices).toContain(fixed.correctAnswer);
+    expect(fixed.correctAnswer).toBe("Reverse colonization");
+  });
+
+  it("downgrades a multiple-choice question whose key matches no choice", () => {
+    const c = clone(sampleProject);
+    const quiz = c.quizzes.find((q) => q.questions.length > 0)!;
+    const q = quiz.questions[0];
+    q.type = "multiple_choice";
+    q.choices = ["Paris", "London", "Rome"];
+    q.correctAnswer = "Berlin"; // not among the choices and not a letter/index
+    const { course } = repairCourse(c);
+    expect(course.quizzes.find((qz) => qz.id === quiz.id)!.questions[0].type).toBe("short_answer");
+  });
+
   it("defaults invalid quiz question points", () => {
     const c = clone(sampleProject);
     const quiz = c.quizzes.find((q) => q.questions.length > 0)!;

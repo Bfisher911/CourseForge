@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
-import { headingOrderIssues, htmlSafetyIssues, imageTagsMissingAltCount, malformedLinksFromHtml, hasUnsafeHtml, sanitizeHtmlForPreview, unsafeHtmlDetail, unsafeHtmlReasons } from "./htmlSafety";
+import { headingOrderIssues, htmlSafetyIssues, imageTagsMissingAltCount, malformedLinksFromHtml, hasUnsafeHtml, sanitizeAiHtml, sanitizeHtmlForPreview, unsafeHtmlDetail, unsafeHtmlReasons } from "./htmlSafety";
+import { hrefsFromHtml } from "./htmlSafety";
 
 describe("html safety (shared Canvas HTML safety)", () => {
   it("treats clean instructional HTML as safe", () => {
@@ -81,5 +82,18 @@ describe("html safety (shared Canvas HTML safety)", () => {
     const issues = htmlSafetyIssues('<h1>Ok</h1><h3>Jump</h3><img src="x"><a href="www.example.com">bad</a>');
 
     expect(issues.map((issue) => issue.label)).toEqual(expect.arrayContaining(["Heading order issue", "Image alt text missing", "Malformed link"]));
+  });
+
+  it("sanitizeAiHtml makes model HTML safe to store and export", () => {
+    const dirty =
+      '<p onclick="x()">Hi</p><script>bad()</script><iframe src="z"></iframe><a href="#">dead</a><a href="">empty</a><a href="https://ok.org">real</a><p style="color:red">keep</p>';
+    const clean = sanitizeAiHtml(dirty);
+
+    // No Canvas-hostile constructs, and no placeholder/empty links remain (export-blocking).
+    expect(unsafeHtmlReasons(clean)).toEqual([]);
+    expect(hrefsFromHtml(clean)).toEqual(["https://ok.org"]);
+    // Anchor text and inline styles are preserved.
+    expect(clean).toContain("dead");
+    expect(clean).toContain('style="color:red"');
   });
 });
